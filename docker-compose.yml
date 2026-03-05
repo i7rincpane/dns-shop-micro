@@ -1,0 +1,30 @@
+services:
+  user-service-db:
+    image: postgres:16-alpine
+    container_name: user-service-db
+    environment:
+      POSTGRES_DB: user_service_db
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5432:5432"
+    networks:
+      - dns-network
+
+  user-service:
+    build: ./user-service
+    container_name: user-service
+    ports:
+      - "8080:8080"
+    environment:
+      SPRING_R2DBC_URL: r2dbc:postgresql://user-service-db:5432/user_service_db
+      SPRING_DATASOURCE_URL: jdbc:postgresql://user-service-db:5432/user_service_db
+      SPRING_R2DBC_USERNAME: postgres
+      SPRING_R2DBC_PASSWORD: postgres
+    depends_on:
+      - user-service-db
+    networks:
+      - dns-network
+
+networks:
+  dns-network:
+    driver: bridge
