@@ -7,9 +7,11 @@ import org.springframework.web.bind.annotation.*;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import ru.nvkz.domain.User;
+import ru.nvkz.domain.UserProfile;
 import ru.nvkz.dto.RegistrationRequest;
 import ru.nvkz.dto.UserFullInfo;
 import ru.nvkz.dto.UserSearchRequest;
+import ru.nvkz.dto.UserUpdateDto;
 import ru.nvkz.service.UserService;
 
 @RestController
@@ -33,5 +35,10 @@ public class UserController {
     @GetMapping
     public Flux<User> getAllByFilter(UserSearchRequest filter) {
         return userService.findAllByFilter(filter);
+    }
+
+    @PatchMapping("/{id}")
+    public Mono<UserProfile> update(@PathVariable Long id, @RequestBody UserUpdateDto userUpdateDto) {
+        return userService.updateProfile(id, userUpdateDto);
     }
 }

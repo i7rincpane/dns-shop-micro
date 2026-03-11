@@ -1,14 +1,14 @@
 package ru.nvkz;
 
-import org.jspecify.annotations.Nullable;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.context.ConfigurableApplicationContext;
 import ru.nvkz.domain.User;
-import ru.nvkz.domain.UserProfile;
 import ru.nvkz.dto.RegistrationRequest;
 import ru.nvkz.service.UserService;
+
+import java.time.LocalDate;
+import java.time.Month;
 
 @SpringBootApplication
 public class UserServiceApplication {
@@ -19,10 +19,10 @@ public class UserServiceApplication {
 
 		UserService userService = a.getBean("userService", UserService.class);
 
-		var request = new RegistrationRequest("test5@test.com", "pass", "name", "Surname");
-		User savedUser = userService.create(request).block();
+		var request = new RegistrationRequest("test11@test.com", "pass", "name", "Surname", "", LocalDate.of(1992, Month.FEBRUARY, 23));
+	//	User savedUser = userService.create(request).block();
 
-		System.out.println(userService.findById(savedUser.id()).block());
+	//	System.out.println(userService.findById(savedUser.id()).block());
 
 	}
 

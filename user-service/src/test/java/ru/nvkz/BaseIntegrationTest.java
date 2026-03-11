@@ -15,9 +15,9 @@ public class BaseIntegrationTest {
 
     @DynamicPropertySource
     static void configureProperties(DynamicPropertyRegistry registry) {
-        registry.add("spring.datasource.url", postgreSQLContainer::getJdbcUrl);
-        registry.add("spring.datasource.username", postgreSQLContainer::getUsername);
-        registry.add("spring.datasource.password", postgreSQLContainer::getPassword);
+        registry.add("spring.liquibase.url", postgreSQLContainer::getJdbcUrl);
+        registry.add("spring.liquibase.user", postgreSQLContainer::getUsername);
+        registry.add("spring.liquibase.password", postgreSQLContainer::getPassword);
 
         registry.add("spring.r2dbc.url", () -> String.format("r2dbc:postgresql://%s:%d/%s",
                 postgreSQLContainer.getHost(),
