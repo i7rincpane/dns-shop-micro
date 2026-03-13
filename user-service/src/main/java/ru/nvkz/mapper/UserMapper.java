@@ -20,8 +20,8 @@ public interface UserMapper {
 
     UserFullInfo toFullInfo(User user, UserProfile profile);
 
-    @Mapping(target =  "userId", ignore = true) // нету
-    @Mapping(target = "version", ignore = true)// чтоб не переписать версию из dto
+    @Mapping(target =  "userId", ignore = true)
+    @Mapping(target = "version", ignore = true)
     @BeanMapping(nullValuePropertyMappingStrategy = NullValuePropertyMappingStrategy.IGNORE) //если нулл в дто, до игнорируем
     void updateProfileFromDto(UserUpdateDto dto, @MappingTarget UserProfile profile);
 

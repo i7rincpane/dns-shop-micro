@@ -32,7 +32,7 @@ public class UserService {
 
     public Mono<UserFullInfo> findById(Long id) {
         return userRepository.findById(id)
-                .zipWith(userProfileRepository.findByUserId(id), userMapper::toFullInfo)
+                .zipWith(userProfileRepository.findByUserId(id), userMapper::toFullInfo) //параллельно выполняю два запроса, и объединяю их результат
                 .switchIfEmpty(Mono.error(new NotFoundException("error.user.notfound", id)));
     }
 

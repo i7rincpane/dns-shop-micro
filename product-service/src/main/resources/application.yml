@@ -1,0 +1,24 @@
+spring:
+  application:
+    name: product-service
+  r2dbc:
+    url: r2dbc:postgresql://localhost:5433/product_service_db
+    username: postgres
+    password: postgres
+
+  messages:
+    encoding: UTF-8
+
+  liquibase:
+    url: jdbc:postgresql://localhost:5433/product_service_db
+    user: postgres
+    password: postgres
+    change-log: classpath:db/changelog/db.changelog-master.yaml
+
+server:
+  port: 8082
+
+logging:
+  level:
+    org.springframework.r2dbc: DEBUG
+
