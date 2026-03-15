@@ -3,19 +3,53 @@ package ru.nvkz.repository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.r2dbc.core.DatabaseClient;
 import reactor.core.publisher.Flux;
+import reactor.core.publisher.Mono;
 import ru.nvkz.configuration.R2dbcConfig;
+import ru.nvkz.dto.CategoryFiltersResponse;
+import ru.nvkz.dto.FilterValue;
 import ru.nvkz.dto.ProductFullResponse;
 import ru.nvkz.dto.ProductSearchRequest;
 
 import java.math.BigDecimal;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Set;
 
 @RequiredArgsConstructor
 public class ProductCustomRepositoryImpl implements ProductCustomRepository {
     private final DatabaseClient databaseClient;
     private final R2dbcConfig.MapToJsonConverter mapToJsonConverter;
     private final R2dbcConfig.JsonToMapConverter jsonToMapConverter;
+
+    private record RowData(String key, String value, Long count) {}
+
+
+    @Override
+    public Mono<CategoryFiltersResponse> getFiltersByCategory(Long categoryId) {
+
+        String sql = """
+                  SELECT key, value, COUNT(*)
+                        FROM products, jsonb_each_text(attributes)
+                        WHERE category_id = :catId
+                        GROUP BY key, value
+                """;
+
+
+        return databaseClient.sql(sql)
+                .bind("catId", categoryId)
+                .map(((row, rowMetadata) ->
+                        new RowData(
+                                row.get("key", String.class),
+                                row.get("value", String.class),
+                                row.get("count", Long.class)
+                        ))
+                )
+                .all()
+                .collectMultimap(
+                        RowData::key,
+                        rowData -> new FilterValue(rowData.value(), rowData.count()))
+                .map(CategoryFiltersResponse::new);
+    }
 
     @Override
     public Flux<ProductFullResponse> findAllByFilter(ProductSearchRequest filter, Integer pageSize, Integer pageNumber) {
@@ -74,4 +108,6 @@ public class ProductCustomRepositoryImpl implements ProductCustomRepository {
                 jsonToMapConverter.convert(row.get("attributes", io.r2dbc.postgresql.codec.Json.class))
         )).all();
     }
+
+
 }

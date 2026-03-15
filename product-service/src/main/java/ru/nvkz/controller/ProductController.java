@@ -7,6 +7,7 @@ import org.springframework.web.bind.annotation.*;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import ru.nvkz.domain.Product;
+import ru.nvkz.dto.CategoryFiltersResponse;
 import ru.nvkz.dto.ProductFullResponse;
 import ru.nvkz.dto.ProductSaveDto;
 import ru.nvkz.dto.ProductSearchRequest;
@@ -34,4 +35,8 @@ public class ProductController {
         return productService.create(product);
     }
 
+    @GetMapping("/filters")
+    public Mono<CategoryFiltersResponse> getFilters(@RequestParam Long categoryId) {
+        return productService.getFiltresByCategory(categoryId);
+    }
 }

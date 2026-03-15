@@ -7,6 +7,7 @@ import org.springframework.transaction.annotation.Transactional;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import ru.nvkz.domain.Product;
+import ru.nvkz.dto.CategoryFiltersResponse;
 import ru.nvkz.dto.ProductFullResponse;
 import ru.nvkz.dto.ProductSaveDto;
 import ru.nvkz.dto.ProductSearchRequest;
@@ -33,8 +34,16 @@ public class ProductService {
 
     @Transactional
     public Mono<Product> create(ProductSaveDto dto) {
-        return productRepository.save(productMapper.toProduct(dto))
-                .onErrorMap(DataIntegrityViolationException.class,
-                        e -> new NotFoundException("error.category.notfound", dto.categoryId()));
+        return categoryRepository.existsById(dto.categoryId())
+                .flatMap(exists -> exists ? productRepository.save(productMapper.toProduct(dto)) :
+                        Mono.error(new NotFoundException("error.category.notfound", dto.categoryId())));
+    }
+
+    public Mono<CategoryFiltersResponse> getFiltresByCategory(Long categoryId) {
+        return productRepository.existsById(categoryId)
+                .flatMap(exists -> exists
+                        ? productRepository.getFiltersByCategory(categoryId)
+                        : Mono.error(new NotFoundException("error.category.notfound", categoryId)));
+
     }
 }

@@ -1,6 +1,7 @@
 package ru.nvkz.controller;
 
 
+import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -16,11 +17,10 @@ import reactor.core.publisher.Flux;
 import ru.nvkz.BaseIntegrationTest;
 import ru.nvkz.domain.Category;
 import ru.nvkz.domain.Product;
-import ru.nvkz.dto.ProductFullResponse;
-import ru.nvkz.dto.ProductSaveDto;
-import ru.nvkz.dto.ProductSearchRequest;
+import ru.nvkz.dto.*;
 
 import java.math.BigDecimal;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
@@ -32,9 +32,9 @@ import static org.assertj.core.api.Assertions.assertThat;
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 class ProductControllerIT extends BaseIntegrationTest {
 
+    public static final long CATEGORY_ID = 1L;
     @Autowired
     private WebTestClient webTestClient;
-
 
     @BeforeEach
     void init() {
@@ -54,9 +54,24 @@ class ProductControllerIT extends BaseIntegrationTest {
     }
 
     @Test
+    void shouldReturnFiltersByCategoryId() {
+        webTestClient.get().uri(uriBuilder -> uriBuilder
+                        .path("/api/v1/products/filters")
+                        .queryParam("categoryId", CATEGORY_ID)
+                        .build())
+                .exchange()
+                .expectStatus().isOk()
+                .expectBody(CategoryFiltersResponse.class)
+                .value(response -> {
+                    Collection<FilterValue> filterValues = response.attributes().get("color");
+                    assertThat(filterValues).containsExactlyInAnyOrder(new FilterValue("black", 2L), new FilterValue("white", 1L));
+                });
+    }
+
+    @Test
     void shouldCreateAndFindByIdAndFindAllByFilter() {
         Category category = template
-                .selectOne(Query.query(Criteria.where("id").is(1L)), Category.class)
+                .selectOne(Query.query(Criteria.where("id").is(CATEGORY_ID)), Category.class)
                 .block();
 
         Product product = webTestClient.post().uri("/api/v1/products")
@@ -148,11 +163,11 @@ class ProductControllerIT extends BaseIntegrationTest {
     private static Stream<Arguments> invalidCreateProduct() {
         return Stream.of(
                 Arguments.of(new ProductSaveDto(null, "Ноутбук", new BigDecimal("500000.00"), "Мощный", Collections.emptyMap()), "categoryId"),
-                Arguments.of(new ProductSaveDto(1L, "", new BigDecimal("500000.00"), "Мощный", Collections.emptyMap()), "name"),
-                Arguments.of(new ProductSaveDto(1L, null, new BigDecimal("500000.00"), "Мощный", Collections.emptyMap()), "name"),
-                Arguments.of(new ProductSaveDto(1L, "   ", new BigDecimal("500000.00"), "Мощный", Collections.emptyMap()), "name"),
-                Arguments.of(new ProductSaveDto(1L, "Ноутбук", null, "Мощный", Collections.emptyMap()), "price"),
-                Arguments.of(new ProductSaveDto(1L, "Ноутбук", new BigDecimal("-1.00"), "Мощный", Collections.emptyMap()), "price")
+                Arguments.of(new ProductSaveDto(CATEGORY_ID, "", new BigDecimal("500000.00"), "Мощный", Collections.emptyMap()), "name"),
+                Arguments.of(new ProductSaveDto(CATEGORY_ID, null, new BigDecimal("500000.00"), "Мощный", Collections.emptyMap()), "name"),
+                Arguments.of(new ProductSaveDto(CATEGORY_ID, "   ", new BigDecimal("500000.00"), "Мощный", Collections.emptyMap()), "name"),
+                Arguments.of(new ProductSaveDto(CATEGORY_ID, "Ноутбук", null, "Мощный", Collections.emptyMap()), "price"),
+                Arguments.of(new ProductSaveDto(CATEGORY_ID, "Ноутбук", new BigDecimal("-1.00"), "Мощный", Collections.emptyMap()), "price")
         );
     }
 
