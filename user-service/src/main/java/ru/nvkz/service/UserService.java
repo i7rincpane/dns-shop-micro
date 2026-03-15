@@ -53,9 +53,8 @@ public class UserService {
                 .switchIfEmpty(Mono.error(new NotFoundException("error.profile.notfound", userId)))
                 .flatMap(profile -> {
                     userMapper.updateProfileFromDto(updateDto, profile);
-                    return template.update(profile);
+                    return userProfileRepository.save(profile);
                 }).retryWhen(Retry.max(3).filter(ex -> ex instanceof OptimisticLockingFailureException));
-
     }
 
     public Flux<User> findAllByFilter(UserSearchRequest filter) {
