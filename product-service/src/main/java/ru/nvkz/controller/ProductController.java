@@ -11,6 +11,7 @@ import ru.nvkz.dto.CategoryFiltersResponse;
 import ru.nvkz.dto.ProductFullResponse;
 import ru.nvkz.dto.ProductSaveDto;
 import ru.nvkz.dto.ProductSearchRequest;
+import ru.nvkz.dto.ProductUpdateDto;
 import ru.nvkz.service.ProductService;
 
 @RestController
@@ -38,5 +39,10 @@ public class ProductController {
     @GetMapping("/filters")
     public Mono<CategoryFiltersResponse> getFilters(@RequestParam Long categoryId) {
         return productService.getFiltresByCategory(categoryId);
+    }
+
+    @PatchMapping("/{id}")
+    public Mono<Product> update(@PathVariable Long id, @RequestBody ProductUpdateDto dto) {
+        return productService.update(id, dto);
     }
 }

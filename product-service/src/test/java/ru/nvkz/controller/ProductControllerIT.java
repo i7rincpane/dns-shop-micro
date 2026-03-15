@@ -148,6 +148,20 @@ class ProductControllerIT extends BaseIntegrationTest {
                 .isEqualTo("Категория 999 не найдена");
     }
 
+    @Test
+    void shouldMergeAttributesOnPatch() {
+        var updateDto = new ProductUpdateDto(null, null, null, null, Map.of("color", "white", "CPU", "M3"));
+
+        webTestClient.patch().uri("/api/v1/products/{id}", 1L)
+                .bodyValue(updateDto)
+                .exchange()
+                .expectStatus().isOk()
+                .expectBody()
+                .jsonPath("$.attributes.color").isEqualTo("white")
+                .jsonPath("$.attributes.storage").isEqualTo("256GB")
+                .jsonPath("$.attributes.CPU").isEqualTo("M3");
+    }
+
     @ParameterizedTest
     @MethodSource("invalidCreateProduct")
     void shouldReturn400WhenCreateIsInvalid(ProductSaveDto dto, String expectedField) {

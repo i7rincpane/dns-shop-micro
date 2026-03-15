@@ -1,16 +1,14 @@
 package ru.nvkz.service;
 
 import lombok.RequiredArgsConstructor;
-import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
+import reactor.util.retry.Retry;
 import ru.nvkz.domain.Product;
-import ru.nvkz.dto.CategoryFiltersResponse;
-import ru.nvkz.dto.ProductFullResponse;
-import ru.nvkz.dto.ProductSaveDto;
-import ru.nvkz.dto.ProductSearchRequest;
+import ru.nvkz.dto.*;
 import ru.nvkz.exception.handler.NotFoundException;
 import ru.nvkz.mapper.ProductMapper;
 import ru.nvkz.repository.CategoryRepository;
@@ -37,6 +35,16 @@ public class ProductService {
         return categoryRepository.existsById(dto.categoryId())
                 .flatMap(exists -> exists ? productRepository.save(productMapper.toProduct(dto)) :
                         Mono.error(new NotFoundException("error.category.notfound", dto.categoryId())));
+    }
+
+    @Transactional
+    public Mono<Product> update(Long id, ProductUpdateDto dto) {
+        return productRepository.findById(id)
+                .switchIfEmpty(Mono.error(new NotFoundException("error.product.notfound", id)))
+                .flatMap(product -> {
+                    productMapper.updateProductFromDto(dto, product);
+                    return productRepository.save(product);
+                }).retryWhen(Retry.max(3).filter(ex -> ex instanceof OptimisticLockingFailureException));
     }
 
     public Mono<CategoryFiltersResponse> getFiltresByCategory(Long categoryId) {
