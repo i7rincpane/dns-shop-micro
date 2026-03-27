@@ -14,12 +14,18 @@ import ru.nvkz.mapper.ProductMapper;
 import ru.nvkz.repository.CategoryRepository;
 import ru.nvkz.repository.ProductRepository;
 
+import java.util.List;
+
 @Service
 @RequiredArgsConstructor
 public class ProductService {
     private final ProductRepository productRepository;
     private final CategoryRepository categoryRepository;
     private final ProductMapper productMapper;
+
+    public Flux<ProductFullResponse> findAllById(List<Long> ids) {
+        return productRepository.findAllById(ids);
+    }
 
     public Mono<ProductFullResponse> findById(Long id) {
         return productRepository.findFullById(id)

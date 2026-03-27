@@ -14,11 +14,18 @@ import ru.nvkz.dto.ProductSearchRequest;
 import ru.nvkz.dto.ProductUpdateDto;
 import ru.nvkz.service.ProductService;
 
+import java.util.List;
+
 @RestController
 @RequestMapping("/api/v1/products")
 @RequiredArgsConstructor
 public class ProductController {
     private final ProductService productService;
+
+    @GetMapping(params = "ids")
+    public Flux<ProductFullResponse> getAll(@RequestParam List<Long> ids) {
+        return productService.findAllById(ids);
+    }
 
     @GetMapping
     public Flux<ProductFullResponse> getAll(ProductSearchRequest productSearchRequest, @RequestParam(defaultValue = "20") Integer pageSize, @RequestParam(defaultValue = "0") Integer pageNumber) {

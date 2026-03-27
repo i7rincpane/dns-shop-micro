@@ -1,0 +1,38 @@
+[versions]
+# Версии инструментов и фреймворков
+java = "21"
+springBoot = "4.0.2"
+springDependencyManagement = "1.1.4"
+jacoco = "0.8.11"
+
+# Версии библиотек
+lombok = "1.18.30"
+testcontainers = "1.19.7"
+aop = "4.0.0-M2"
+wiremock = "5.0.2"
+
+[libraries]
+# Spring Boot
+boot-starter-webflux = { group = "org.springframework.boot", name = "spring-boot-starter-webflux" }
+boot-starter-actuator = { group = "org.springframework.boot", name = "spring-boot-starter-actuator" }
+boot-starter-aop = { group = "org.springframework.boot", name = "spring-boot-starter-aop", version.ref = "aop" }
+boot-starter-test = { group = "org.springframework.boot", name = "spring-boot-starter-test" }
+boot-starter-validation = { group = "org.springframework.boot", name = "spring-boot-starter-validation" }
+
+
+# Database & Migration
+data-r2dbc = { group = "org.springframework.boot", name = "spring-boot-starter-data-r2dbc" }
+r2dbc-postgresql = { group = "org.postgresql", name = "r2dbc-postgresql" }
+spring-jdbc = { group = "org.springframework", name = "spring-jdbc" }
+postgresql-jdbc = { group = "org.postgresql", name = "postgresql" }
+
+# Testing
+reactor-test = { group = "io.projectreactor", name = "reactor-test" }
+webtestclient = { group = "org.springframework.boot", name = "spring-boot-webtestclient" }
+testcontainers-jupiter = { group = "org.testcontainers", name = "junit-jupiter", version.ref = "testcontainers" }
+testcontainers-postgresql = { group = "org.testcontainers", name = "postgresql", version.ref = "testcontainers" }
+wiremock = { group = "org.springframework.cloud", name = "spring-cloud-contract-wiremock", version.ref = "wiremock" }
+
+[plugins]
+spring-boot = { id = "org.springframework.boot", version.ref = "springBoot" }
+spring-dependency-management = { id = "io.spring.dependency-management", version.ref = "springDependencyManagement" }

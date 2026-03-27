@@ -60,6 +60,8 @@ public class UserService {
     public Flux<User> findAllByFilter(UserSearchRequest filter) {
         Criteria criteria = Criteria.empty();
 
+
+
         if (filter.email() != null) {
             criteria = criteria.and("email").is(filter.email());
         }

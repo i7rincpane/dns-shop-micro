@@ -1,0 +1,39 @@
+spring:
+  application:
+    name: cart-service
+  r2dbc:
+    url: r2dbc:postgresql://localhost:5434/cart_service_db
+    username: postgres
+    password: postgres
+
+  messages:
+    encoding: UTF-8
+
+  liquibase:
+    url: jdbc:postgresql://localhost:5434/cart_service_db
+    user: postgres
+    password: postgres
+    change-log: classpath:db/changelog/db.changelog-master.yaml
+
+server:
+  port: 8083
+
+services:
+  product-service:
+    url: http://localhost:8082
+
+resilience4j:
+  circuitbreaker:
+    instances:
+      productService:
+        slidingWindowSize: 10
+        failureRateThreshold: 50
+        waitDurationInOpenState: 10s
+        permittedNumberOfCallsInHalfOpenState: 3
+
+logging:
+  level:
+    org.springframework.r2dbc: DEBUG
+
+
+

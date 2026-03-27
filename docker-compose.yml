@@ -20,6 +20,18 @@ services:
       - "5433:5432"
     networks:
       - dns-network
+  
+  cart-service-db:
+    image: postgres:16-alpine
+    container_name: cart-service-db
+    environment:
+      POSTGRES_DB: cart_service_db
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5434:5432"
+    networks:
+      - dns-network
+  
 
   user-service:
     build: ./user-service
@@ -55,7 +67,28 @@ services:
     depends_on:
       - product-service-db
     networks:
-      - dns-network    
+      - dns-network 
+
+  cart-service:
+    build: ./cart-service
+    container_name: cart-service
+    ports:
+      - "8083:8083"
+    environment:
+      SPRING_R2DBC_URL: r2dbc:postgresql://cart-service-db:5432/cart_service_db
+      SPRING_R2DBC_USERNAME: postgres
+      SPRING_R2DBC_PASSWORD: postgres
+      
+      SPRING_LIQUIBASE_URL: jdbc:postgresql://cart-service-db:5432/cart_service_db
+      SPRING_LIQUIBASE_USER: postgres
+      SPRING_LIQUIBASE_PASSWORD: postgres
+
+      SERVICES_PRODUCT-SERVICE_URL: http://product-service:8082
+    depends_on:
+      - cart-service-db
+    networks:
+      - dns-network 
+        
 
 networks:
   dns-network:

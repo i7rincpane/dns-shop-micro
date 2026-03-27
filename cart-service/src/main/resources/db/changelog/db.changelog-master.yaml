@@ -1,0 +1,6 @@
+databaseChangeLog:
+  - include:
+      file: db/changelog/changes/001_create_cart_items_table.sql
+  - include:
+      file: db/changelog/changes/002_add_version_to_cart_items.sql
+

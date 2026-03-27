@@ -1,7 +1,6 @@
 package ru.nvkz.controller;
 
 
-import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -51,6 +50,21 @@ class ProductControllerIT extends BaseIntegrationTest {
                         template.insert(createNewProduct(category.id(), "Тарелка 1", new BigDecimal("100.00"), "Дешевый", Collections.emptyMap()))
                 )
                 .block();
+    }
+
+    @Test
+    void shouldReturnProductsByIds() {
+        webTestClient.get().uri(uriBuilder -> uriBuilder
+                        .path("/api/v1/products")
+                        .queryParam("ids", 3L, 4L)
+                        .build())
+                .exchange()
+                .expectStatus().isOk()
+                .expectBodyList(ProductFullResponse.class)
+                .value(response -> {
+                    assertThat(response).extracting(ProductFullResponse::name)
+                            .containsExactlyInAnyOrder("Товар 3", "Другое");
+                });
     }
 
     @Test

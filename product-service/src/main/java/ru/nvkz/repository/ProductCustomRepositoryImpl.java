@@ -18,6 +18,7 @@ import java.util.Set;
 @RequiredArgsConstructor
 public class ProductCustomRepositoryImpl implements ProductCustomRepository {
     private final DatabaseClient databaseClient;
+
     private final R2dbcConfig.MapToJsonConverter mapToJsonConverter;
     private final R2dbcConfig.JsonToMapConverter jsonToMapConverter;
 
