@@ -7,11 +7,8 @@ import org.springframework.web.bind.annotation.*;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import ru.nvkz.domain.Product;
-import ru.nvkz.dto.CategoryFiltersResponse;
-import ru.nvkz.dto.ProductFullResponse;
-import ru.nvkz.dto.ProductSaveDto;
-import ru.nvkz.dto.ProductSearchRequest;
-import ru.nvkz.dto.ProductUpdateDto;
+import ru.nvkz.dto.*;
+import ru.nvkz.exception.handler.OutOfStockException;
 import ru.nvkz.service.ProductService;
 
 import java.util.List;
@@ -52,4 +49,18 @@ public class ProductController {
     public Mono<Product> update(@PathVariable Long id, @RequestBody ProductUpdateDto dto) {
         return productService.update(id, dto);
     }
+
+    @PostMapping("stock/decrease")
+    @ResponseStatus(HttpStatus.OK)
+    public Mono<Void> decreaseStock(@RequestBody List<StockUpdateRequest> requests) {
+        return productService.decreaseStock(requests);
+    }
+
+
+    @PostMapping("stock/increase")
+    @ResponseStatus(HttpStatus.OK)
+    public Mono<Void> increaseStock(@RequestBody List<StockUpdateRequest> requests) {
+        return productService.increaseStock(requests);
+    }
+
 }

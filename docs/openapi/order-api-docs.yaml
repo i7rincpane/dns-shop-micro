@@ -1,0 +1,53 @@
+openapi: 3.1.0
+info:
+  title: OpenAPI definition
+  version: v0
+servers:
+- url: http://localhost:8084
+  description: Generated server url
+paths:
+  /api/v1/orders:
+    post:
+      tags:
+      - order-controller
+      operationId: createOrder
+      parameters:
+      - name: X-User-Id
+        in: header
+        required: true
+        schema:
+          type: integer
+          format: int64
+      responses:
+        "201":
+          description: Created
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/Order"
+components:
+  schemas:
+    Order:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        userId:
+          type: integer
+          format: int64
+        status:
+          type: string
+          enum:
+          - NEW
+          - PAID
+          - CANCELLED
+          - DELIVERED
+        totalPrice:
+          type: number
+        createdAt:
+          type: string
+          format: date-time
+        version:
+          type: integer
+          format: int64

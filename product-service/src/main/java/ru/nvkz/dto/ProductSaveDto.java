@@ -15,6 +15,7 @@ public record ProductSaveDto(
         @NotNull(message = "{product.price.notnull}")
         @Positive(message = "{product.price.positive}")
         BigDecimal price,
+        Integer quantity,
         String description,
         Map<String, Object> attributes
 ) {

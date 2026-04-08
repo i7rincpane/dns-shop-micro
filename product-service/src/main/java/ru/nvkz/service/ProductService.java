@@ -10,6 +10,7 @@ import reactor.util.retry.Retry;
 import ru.nvkz.domain.Product;
 import ru.nvkz.dto.*;
 import ru.nvkz.exception.handler.NotFoundException;
+import ru.nvkz.exception.handler.OutOfStockException;
 import ru.nvkz.mapper.ProductMapper;
 import ru.nvkz.repository.CategoryRepository;
 import ru.nvkz.repository.ProductRepository;
@@ -60,4 +61,29 @@ public class ProductService {
                         : Mono.error(new NotFoundException("error.category.notfound", categoryId)));
 
     }
+
+    @Transactional
+    public Mono<Void> decreaseStock(List<StockUpdateRequest> requests) {
+        return Flux.fromIterable(requests)
+                .flatMap(request -> productRepository.decreaseStock(request.productId(),
+                                request.quantity())
+                        .flatMap(updatedRows -> {
+                                    if (updatedRows == 0) {
+                                        return Mono.error(new OutOfStockException("error.product.outofstock", request.productId(), request.quantity()));
+                                    }
+                                    return Mono.empty();
+                                }
+                        )
+                )
+                .then(); // просто сигнализируем об успехе,  превращаем Flux в Mono<Void>
+    }
+
+    @Transactional
+    public Mono<Void> increaseStock(List<StockUpdateRequest> requests) {
+        return Flux.fromIterable(requests)
+                .flatMap(request -> productRepository.increaseStock(request.productId(),
+                        request.quantity()))
+                .then();
+    }
+
 }

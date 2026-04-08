@@ -1,0 +1,330 @@
+openapi: 3.1.0
+info:
+  title: OpenAPI definition
+  version: v0
+servers:
+- url: http://localhost:8082
+  description: Generated server url
+paths:
+  /api/v1/products:
+    get:
+      tags:
+      - product-controller
+      operationId: getAll
+      parameters:
+      - name: productSearchRequest
+        in: query
+        required: true
+        schema:
+          $ref: "#/components/schemas/ProductSearchRequest"
+      - name: pageSize
+        in: query
+        required: false
+        schema:
+          type: integer
+          format: int32
+          default: 20
+      - name: pageNumber
+        in: query
+        required: false
+        schema:
+          type: integer
+          format: int32
+          default: 0
+      - name: ids
+        in: query
+        required: true
+        schema:
+          type: array
+          items:
+            type: integer
+            format: int64
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ProductFullResponse"
+    post:
+      tags:
+      - product-controller
+      operationId: create
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ProductSaveDto"
+        required: true
+      responses:
+        "201":
+          description: Created
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/Product"
+  /api/v1/products/stock/increase:
+    post:
+      tags:
+      - product-controller
+      operationId: increaseStock
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: array
+              items:
+                $ref: "#/components/schemas/StockUpdateRequest"
+        required: true
+      responses:
+        "200":
+          description: OK
+  /api/v1/products/stock/decrease:
+    post:
+      tags:
+      - product-controller
+      operationId: decreaseStock
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: array
+              items:
+                $ref: "#/components/schemas/StockUpdateRequest"
+        required: true
+      responses:
+        "200":
+          description: OK
+  /api/v1/categories:
+    get:
+      tags:
+      - category-controller
+      operationId: getAll_1
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Category"
+    post:
+      tags:
+      - category-controller
+      operationId: create_1
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/Category"
+        required: true
+      responses:
+        "201":
+          description: Created
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/Category"
+  /api/v1/products/{id}:
+    get:
+      tags:
+      - product-controller
+      operationId: getById
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: integer
+          format: int64
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ProductFullResponse"
+    patch:
+      tags:
+      - product-controller
+      operationId: update
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: integer
+          format: int64
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ProductUpdateDto"
+        required: true
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/Product"
+  /api/v1/products/filters:
+    get:
+      tags:
+      - product-controller
+      operationId: getFilters
+      parameters:
+      - name: categoryId
+        in: query
+        required: true
+        schema:
+          type: integer
+          format: int64
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/CategoryFiltersResponse"
+components:
+  schemas:
+    ProductSaveDto:
+      type: object
+      properties:
+        categoryId:
+          type: integer
+          format: int64
+        name:
+          type: string
+          minLength: 1
+        price:
+          type: number
+        quantity:
+          type: integer
+          format: int32
+        description:
+          type: string
+        attributes:
+          type: object
+          additionalProperties: {}
+      required:
+      - categoryId
+      - name
+      - price
+    Product:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        categoryId:
+          type: integer
+          format: int64
+        name:
+          type: string
+        price:
+          type: number
+        description:
+          type: string
+        quantity:
+          type: integer
+          format: int32
+        attributes:
+          type: object
+          additionalProperties: {}
+        version:
+          type: integer
+          format: int64
+    StockUpdateRequest:
+      type: object
+      properties:
+        productId:
+          type: integer
+          format: int64
+        quantity:
+          type: integer
+          format: int32
+    Category:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        name:
+          type: string
+    ProductUpdateDto:
+      type: object
+      properties:
+        name:
+          type: string
+        price:
+          type: number
+        quantity:
+          type: integer
+          format: int32
+        description:
+          type: string
+        categoryId:
+          type: integer
+          format: int64
+        attributes:
+          type: object
+          additionalProperties: {}
+    ProductSearchRequest:
+      type: object
+      properties:
+        namePart:
+          type: string
+        categoryId:
+          type: integer
+          format: int64
+        minPrice:
+          type: number
+        maxPrice:
+          type: number
+        attrs:
+          type: array
+          items:
+            type: string
+        attrsAsMap:
+          type: object
+          additionalProperties: {}
+    ProductFullResponse:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        name:
+          type: string
+        price:
+          type: number
+        categoryName:
+          type: string
+        quantity:
+          type: integer
+          format: int32
+        attributes:
+          type: object
+          additionalProperties: {}
+    CategoryFiltersResponse:
+      type: object
+      properties:
+        attributes:
+          type: object
+          additionalProperties:
+            type: array
+            items:
+              $ref: "#/components/schemas/FilterValue"
+    FilterValue:
+      type: object
+      properties:
+        value:
+          type: string
+        count:
+          type: integer
+          format: int64

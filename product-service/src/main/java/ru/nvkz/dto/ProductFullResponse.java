@@ -8,6 +8,7 @@ public record ProductFullResponse(
         String name,
         BigDecimal price,
         String categoryName,
+        Integer quantity,
         Map<String, Object> attributes
 ) {
 }

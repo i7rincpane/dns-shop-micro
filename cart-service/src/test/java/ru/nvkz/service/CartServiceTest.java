@@ -12,7 +12,7 @@ import ru.nvkz.client.ProductClient;
 import ru.nvkz.domain.CartItem;
 import ru.nvkz.exception.handler.NotFoundException;
 import ru.nvkz.mapper.CartItemMapper;
-import ru.nvkz.repository.CartRepository;
+import ru.nvkz.repository.CartItemRepository;
 
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.Mockito.when;
@@ -22,7 +22,7 @@ import static org.mockito.Mockito.when;
 public class CartServiceTest {
 
     @Mock
-    private CartRepository cartRepository;
+    private CartItemRepository cartItemRepository;
     @Mock
     private ProductClient productClient;
     @Mock

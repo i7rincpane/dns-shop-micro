@@ -55,7 +55,7 @@ public class ProductCustomRepositoryImpl implements ProductCustomRepository {
     @Override
     public Flux<ProductFullResponse> findAllByFilter(ProductSearchRequest filter, Integer pageSize, Integer pageNumber) {
         StringBuilder sql = new StringBuilder("""
-                    SELECT p.id, p.name, p.price, c.name as category_name, p.attributes
+                    SELECT p.id, p.name, p.price, c.name as category_name, p.quantity, p.attributes
                     FROM products p
                     JOIN categories c ON p.category_id = c.id
                     WHERE 1=1
@@ -106,6 +106,7 @@ public class ProductCustomRepositoryImpl implements ProductCustomRepository {
                 row.get("name", String.class),
                 row.get("price", BigDecimal.class),
                 row.get("category_name", String.class),
+                row.get("quantity", Integer.class),
                 jsonToMapConverter.convert(row.get("attributes", io.r2dbc.postgresql.codec.Json.class))
         )).all();
     }

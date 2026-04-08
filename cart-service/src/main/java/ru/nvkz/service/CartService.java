@@ -15,7 +15,7 @@ import ru.nvkz.dto.CartResponse;
 import ru.nvkz.dto.ProductFullResponse;
 import ru.nvkz.exception.handler.NotFoundException;
 import ru.nvkz.mapper.CartItemMapper;
-import ru.nvkz.repository.CartRepository;
+import ru.nvkz.repository.CartItemRepository;
 
 import java.math.BigDecimal;
 import java.util.List;
@@ -25,24 +25,23 @@ import java.util.Map;
 @Service
 @RequiredArgsConstructor
 public class CartService {
-    private final CartRepository cartRepository;
+    private final CartItemRepository cartItemRepository;
     private final ProductClient productClient;
     private final CartItemMapper cartItemMapper;
 
-
     @Transactional
     public Mono<CartItem> updateItem(Long userId, Long productId, CartItemUpdateDto updateDto) {
-        return cartRepository.findByUserIdAndProductId(userId, productId)
+        return cartItemRepository.findByUserIdAndProductId(userId, productId)
                 .switchIfEmpty(Mono.error(new NotFoundException("error.product.notfound", productId)))
                 .flatMap(cartItem -> {
 
                     if (updateDto.quantity() != null && updateDto.quantity() <= 0) {
-                        return cartRepository.delete(cartItem)
+                        return cartItemRepository.delete(cartItem)
                                 .then(Mono.empty());
                     }
 
                     cartItemMapper.updateCartItemFromDto(updateDto, cartItem);
-                    return cartRepository.save(cartItem);
+                    return cartItemRepository.save(cartItem);
                 })
                 .retryWhen(Retry.max(3).filter(ex -> ex instanceof OptimisticLockingFailureException));
     }
@@ -56,16 +55,16 @@ public class CartService {
                 .singleOrEmpty()
                 .switchIfEmpty(Mono.error(new NotFoundException("error.product.notfound", productId)))
                 .flatMap(product ->
-                        cartRepository.findByUserIdAndProductId(userId, productId)
+                        cartItemRepository.findByUserIdAndProductId(userId, productId)
                                 .flatMap(cartItem -> {
                                     cartItem.setQuantity(cartItem.getQuantity() + quantity);
-                                    return cartRepository.save(cartItem);
+                                    return cartItemRepository.save(cartItem);
                                 }))
-                .switchIfEmpty(Mono.defer(() -> cartRepository.save(new CartItem(null, userId, productId, quantity, true, null))));
+                .switchIfEmpty(Mono.defer(() -> cartItemRepository.save(new CartItem(null, userId, productId, quantity, true, null))));
     }
 
     public Mono<CartResponse> getCartByUserId(Long id) {
-        return cartRepository.findByUserId(id)
+        return cartItemRepository.findByUserId(id)
                 .collectList()
                 .flatMap(items -> {
 
@@ -83,7 +82,7 @@ public class CartService {
     }
 
     public Mono<Void> clearCart(Long userId) {
-        return cartRepository.deleteAllByUserId(userId);
+        return cartItemRepository.deleteAllByUserId(userId);
     }
 
     private CartResponse buildCartResponse(List<CartItem> items, Map<Long, ProductFullResponse> productMap) {

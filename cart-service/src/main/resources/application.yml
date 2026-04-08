@@ -15,6 +15,15 @@ spring:
     password: postgres
     change-log: classpath:db/changelog/db.changelog-master.yaml
 
+  kafka:
+    bootstrap-servers: localhost:9092
+    consumer:
+      group-id: cart-service-group
+      auto-offset-reset: earliest
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      enable-auto-commit: false
+
 server:
   port: 8083
 
@@ -35,5 +44,7 @@ logging:
   level:
     org.springframework.r2dbc: DEBUG
 
-
-
+app:
+  order-events-topic:
+    name: order-events
+    limitRate: 10

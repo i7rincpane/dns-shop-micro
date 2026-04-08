@@ -25,7 +25,6 @@ public class BaseIntegrationTest {
                 postgreSQLContainer.getDatabaseName()));
         registry.add("spring.r2dbc.username", postgreSQLContainer::getUsername);
         registry.add("spring.r2dbc.password", postgreSQLContainer::getPassword);
-        System.out.println("порт: " + postgreSQLContainer.getMappedPort(PostgreSQLContainer.POSTGRESQL_PORT));
     }
 
 }

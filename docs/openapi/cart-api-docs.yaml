@@ -1,0 +1,163 @@
+openapi: 3.1.0
+info:
+  title: OpenAPI definition
+  version: v0
+servers:
+- url: http://localhost:8083
+  description: Generated server url
+paths:
+  /api/v1/cart:
+    get:
+      tags:
+      - cart-controller
+      operationId: getCart
+      parameters:
+      - name: X-User-Id
+        in: header
+        required: true
+        schema:
+          type: integer
+          format: int64
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/CartResponse"
+    post:
+      tags:
+      - cart-controller
+      operationId: addToCart
+      parameters:
+      - name: X-User-Id
+        in: header
+        required: true
+        schema:
+          type: integer
+          format: int64
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CartItemRequest"
+        required: true
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/CartItem"
+    delete:
+      tags:
+      - cart-controller
+      operationId: clearCart
+      parameters:
+      - name: X-User-Id
+        in: header
+        required: true
+        schema:
+          type: integer
+          format: int64
+      responses:
+        "204":
+          description: No Content
+  /api/v1/cart/{productId}:
+    patch:
+      tags:
+      - cart-controller
+      operationId: update
+      parameters:
+      - name: X-User-Id
+        in: header
+        required: true
+        schema:
+          type: integer
+          format: int64
+      - name: productId
+        in: path
+        required: true
+        schema:
+          type: integer
+          format: int64
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CartItemUpdateDto"
+        required: true
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/CartItem"
+components:
+  schemas:
+    CartItemRequest:
+      type: object
+      properties:
+        productId:
+          type: integer
+          format: int64
+        quantity:
+          type: integer
+          format: int32
+      required:
+      - productId
+    CartItem:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        userId:
+          type: integer
+          format: int64
+        productId:
+          type: integer
+          format: int64
+        quantity:
+          type: integer
+          format: int32
+        version:
+          type: integer
+          format: int64
+        selected:
+          type: boolean
+    CartItemUpdateDto:
+      type: object
+      properties:
+        quantity:
+          type: integer
+          format: int64
+        isSelected:
+          type: boolean
+    CartItemDto:
+      type: object
+      properties:
+        productId:
+          type: integer
+          format: int64
+        productName:
+          type: string
+        price:
+          type: number
+        quantity:
+          type: integer
+          format: int32
+        isSelected:
+          type: boolean
+        subTotal:
+          type: number
+    CartResponse:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/CartItemDto"
+        totalSelectedPrice:
+          type: number

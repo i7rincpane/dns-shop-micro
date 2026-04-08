@@ -31,10 +31,23 @@ services:
       - "5434:5432"
     networks:
       - dns-network
+
+  order-service-db:
+    image: postgres:16-alpine
+    container_name: order-service-db
+    environment:
+      POSTGRES_DB: order_service_db
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5435:5432"
+    networks:
+      - dns-network
   
 
   user-service:
-    build: ./user-service
+    build:
+      context: .
+      dockerfile: user-service/Dockerfile
     container_name: user-service
     ports:
       - "8080:8080"
@@ -52,7 +65,9 @@ services:
       - dns-network
       
   product-service:
-    build: ./product-service
+    build:
+      context: .
+      dockerfile: product-service/Dockerfile
     container_name: product-service
     ports:
       - "8082:8082"
@@ -70,7 +85,9 @@ services:
       - dns-network 
 
   cart-service:
-    build: ./cart-service
+    build:
+      context: .
+      dockerfile: cart-service/Dockerfile
     container_name: cart-service
     ports:
       - "8083:8083"
@@ -83,12 +100,75 @@ services:
       SPRING_LIQUIBASE_USER: postgres
       SPRING_LIQUIBASE_PASSWORD: postgres
 
-      SERVICES_PRODUCT-SERVICE_URL: http://product-service:8082
+      SERVICES_PRODUCT_SERVICE_URL: http://product-service:8082
+      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafkaserver:9094
     depends_on:
       - cart-service-db
     networks:
-      - dns-network 
-        
+      - dns-network
+
+  order-service:
+    build:
+      context: .
+      dockerfile: order-service/Dockerfile
+    container_name: order-service
+    ports:
+      - "8084:8084"
+    environment:
+      SPRING_R2DBC_URL: r2dbc:postgresql://order-service-db:5432/order_service_db
+      SPRING_R2DBC_USERNAME: postgres
+      SPRING_R2DBC_PASSWORD: postgres
+
+      SPRING_LIQUIBASE_URL: jdbc:postgresql://order-service-db:5432/order_service_db
+      SPRING_LIQUIBASE_USER: postgres
+      SPRING_LIQUIBASE_PASSWORD: postgres
+
+      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafkaserver:9094
+
+      SERVICES_PRODUCT_SERVICE_URL: http://product-service:8082
+      SERVICES_CART_SERVICE_URL: http://cart-service:8083
+    depends_on:
+      - order-service-db
+      - kafkaserver
+    networks:
+      - dns-network
+
+  zookeeper:
+    image: wurstmeister/zookeeper:latest
+    ports:
+      - "2181:2181"
+    networks:
+      - dns-network
+
+  kafkaserver:
+    image: wurstmeister/kafka:latest
+    ports:
+      - "9092:9092"
+    environment:
+      - KAFKA_LISTENERS=INSIDE://:9094,OUTSIDE://:9092
+      - KAFKA_ADVERTISED_LISTENERS=INSIDE://kafkaserver:9094,OUTSIDE://localhost:9092
+      - KAFKA_LISTENER_SECURITY_PROTOCOL_MAP=INSIDE:PLAINTEXT,OUTSIDE:PLAINTEXT
+      - KAFKA_INTER_BROKER_LISTENER_NAME=INSIDE
+      - KAFKA_ZOOKEEPER_CONNECT=zookeeper:2181
+      - KAFKA_CREATE_TOPICS=order-events:3:1
+    depends_on:
+      - zookeeper
+    networks:
+      - dns-network
+
+  kafdrop:
+    image: obsidiandynamics/kafdrop
+    container_name: kafdrop
+    ports:
+      - "9000:9000"
+    environment:
+      KAFKA_BROKERCONNECT: "kafkaserver:9094"
+    depends_on:
+      - kafkaserver
+    networks:
+      - dns-network
+
+
 
 networks:
   dns-network:

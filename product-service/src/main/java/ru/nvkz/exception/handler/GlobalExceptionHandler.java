@@ -37,10 +37,12 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(NotFoundException.class)
     public ResponseEntity<String> handleNotFound(NotFoundException ex, ServerWebExchange serverWebExchange) {
-        Locale locale = serverWebExchange.getLocaleContext().getLocale();
-        String message = messageSource.getMessage(ex.getMessage(), ex.getArgs(), locale);
-        log.warn("Resource not found: {}", message);
-        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(message);
+        return getResponseEntity(ex, serverWebExchange, HttpStatus.NOT_FOUND);
+    }
+
+    @ExceptionHandler(OutOfStockException.class)
+    public ResponseEntity<String> handleOutOfStock(OutOfStockException ex, ServerWebExchange serverWebExchange) {
+        return getResponseEntity(ex, serverWebExchange, HttpStatus.UNPROCESSABLE_CONTENT);
     }
 
     @ExceptionHandler(Exception.class)
@@ -54,5 +56,12 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(ResponseStatusException.class)
     public ResponseEntity<String> handleResponseStatus(ResponseStatusException ex) {
         return ResponseEntity.status(ex.getStatusCode()).body(ex.getReason());
+    }
+
+    private ResponseEntity<String> getResponseEntity(DnsShopException ex, ServerWebExchange serverWebExchange, HttpStatus unprocessableContent) {
+        Locale locale = serverWebExchange.getLocaleContext().getLocale();
+        String message = messageSource.getMessage(ex.getMessage(), ex.getArgs(), locale);
+        log.warn(message);
+        return ResponseEntity.status(unprocessableContent).body(message);
     }
 }

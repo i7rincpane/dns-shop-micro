@@ -34,7 +34,7 @@ public abstract class BaseIntegrationTest {
     @BeforeEach
     void clearDatabase() {
         template.getDatabaseClient()
-                .sql("TRUNCATE TABLE cart_items RESTART IDENTITY CASCADE")
+                .sql("TRUNCATE TABLE orders, order_items RESTART IDENTITY CASCADE")
                 .then()
                 .block();
     }
@@ -51,7 +51,6 @@ public abstract class BaseIntegrationTest {
                 postgreSQLContainer.getDatabaseName()));
         registry.add("spring.r2dbc.username", postgreSQLContainer::getUsername);
         registry.add("spring.r2dbc.password", postgreSQLContainer::getPassword);
-        System.out.println("порт: " + postgreSQLContainer.getMappedPort(PostgreSQLContainer.POSTGRESQL_PORT));
 
         registry.add("services.product-service.url", wireMock::baseUrl);
     }

@@ -40,16 +40,45 @@ class ProductControllerIT extends BaseIntegrationTest {
         template.insert(new Category(null, "Электроника"))
                 .flatMap(category ->
                         Flux.concat(
-                                template.insert(createNewProduct(category.id(), "Товар 1", new BigDecimal("100.00"), "Дешевый", Map.of("color", "black", "storage", "256GB"))),
-                                template.insert(createNewProduct(category.id(), "Товар 2", new BigDecimal("500.00"), "Приемлемый", Map.of("color", "white", "storage", "128GB"))),
-                                template.insert(createNewProduct(category.id(), "Товар 3", new BigDecimal("1000.00"), "Дорогой", Map.of("color", "black", "fast_charge", true))),
-                                template.insert(createNewProduct(category.id(), "Другое", new BigDecimal("1101.00"), "Переменный", Collections.emptyMap()))
+                                template.insert(createNewProduct(category.id(), "Товар 1", new BigDecimal("100.00"), 10, "Дешевый", Map.of("color", "black", "storage", "256GB"))),
+                                template.insert(createNewProduct(category.id(), "Товар 2", new BigDecimal("500.00"), 10, "Приемлемый", Map.of("color", "white", "storage", "128GB"))),
+                                template.insert(createNewProduct(category.id(), "Товар 3", new BigDecimal("1000.00"), 10, "Дорогой", Map.of("color", "black", "fast_charge", true))),
+                                template.insert(createNewProduct(category.id(), "Другое", new BigDecimal("1101.00"), 10, "Переменный", Collections.emptyMap()))
                         ).collectList()
                 ).then(template.insert(new Category(null, "Посуда")))
                 .flatMap(category ->
-                        template.insert(createNewProduct(category.id(), "Тарелка 1", new BigDecimal("100.00"), "Дешевый", Collections.emptyMap()))
+                        template.insert(createNewProduct(category.id(), "Тарелка 1", new BigDecimal("100.00"), 10, "Дешевый", Collections.emptyMap()))
                 )
                 .block();
+    }
+
+    @Test
+    void shouldDecreaseStockSuccessfully() {
+        webTestClient.post().uri("/api/v1/products/stock/decrease")
+                .bodyValue(List.of(new StockUpdateRequest(1L, 2)))
+                .exchange()
+                .expectStatus().isOk()
+                .expectBody();
+
+        Product product = template.selectOne(Query.query(Criteria.where("id").is(1L)), Product.class).block();
+
+        assertThat(product.getQuantity()).isEqualTo(8);
+    }
+
+    @Test
+    void shouldThrowErrorWhenStockNotEnough() {
+        webTestClient.post().uri("/api/v1/products/stock/decrease")
+                .bodyValue(List.of(new StockUpdateRequest(2L, 1), new StockUpdateRequest(1L, 222)))
+                .exchange().expectStatus().is4xxClientError()
+                .expectBody(String.class)
+                .isEqualTo("Продукт 1 отсутствует на складе в количестве 222");
+
+        List<Product> products = template.select(Query.query(Criteria.where("id").in(1L, 2L)), Product.class)
+                .collectList()
+                .block();
+
+        assertThat(products.stream().mapToInt(Product::getQuantity).toArray()).containsExactlyInAnyOrder(10, 10);
+
     }
 
     @Test
@@ -89,7 +118,7 @@ class ProductControllerIT extends BaseIntegrationTest {
                 .block();
 
         Product product = webTestClient.post().uri("/api/v1/products")
-                .bodyValue(new ProductSaveDto(category.id(), "Ноутбук", new BigDecimal("500000.00"), "Мощный", Map.of("CPU", "M3", "RAM", "16GB")))
+                .bodyValue(new ProductSaveDto(category.id(), "Ноутбук", new BigDecimal("500000.00"), 10, "Мощный", Map.of("CPU", "M3", "RAM", "16GB")))
                 .exchange()
                 .expectStatus().isCreated()
                 .expectBody(Product.class)
@@ -155,7 +184,7 @@ class ProductControllerIT extends BaseIntegrationTest {
     void shouldReturn$404WhenCategoryIntoProductNotExisting() {
         webTestClient.post().uri("/api/v1/products")
                 .header("Accept-Language", "ru")
-                .bodyValue(new ProductSaveDto(999L, "Ноутбук", new BigDecimal("500000.00"), "Мощный", Collections.emptyMap()))
+                .bodyValue(new ProductSaveDto(999L, "Ноутбук", new BigDecimal("500000.00"), 10, "Мощный", Collections.emptyMap()))
                 .exchange()
                 .expectStatus().isNotFound()
                 .expectBody(String.class)
@@ -164,7 +193,7 @@ class ProductControllerIT extends BaseIntegrationTest {
 
     @Test
     void shouldMergeAttributesOnPatch() {
-        var updateDto = new ProductUpdateDto(null, null, null, null, Map.of("color", "white", "CPU", "M3"));
+        var updateDto = new ProductUpdateDto(null, null, null, null, null, Map.of("color", "white", "CPU", "M3"));
 
         webTestClient.patch().uri("/api/v1/products/{id}", 1L)
                 .bodyValue(updateDto)
@@ -190,12 +219,12 @@ class ProductControllerIT extends BaseIntegrationTest {
 
     private static Stream<Arguments> invalidCreateProduct() {
         return Stream.of(
-                Arguments.of(new ProductSaveDto(null, "Ноутбук", new BigDecimal("500000.00"), "Мощный", Collections.emptyMap()), "categoryId"),
-                Arguments.of(new ProductSaveDto(CATEGORY_ID, "", new BigDecimal("500000.00"), "Мощный", Collections.emptyMap()), "name"),
-                Arguments.of(new ProductSaveDto(CATEGORY_ID, null, new BigDecimal("500000.00"), "Мощный", Collections.emptyMap()), "name"),
-                Arguments.of(new ProductSaveDto(CATEGORY_ID, "   ", new BigDecimal("500000.00"), "Мощный", Collections.emptyMap()), "name"),
-                Arguments.of(new ProductSaveDto(CATEGORY_ID, "Ноутбук", null, "Мощный", Collections.emptyMap()), "price"),
-                Arguments.of(new ProductSaveDto(CATEGORY_ID, "Ноутбук", new BigDecimal("-1.00"), "Мощный", Collections.emptyMap()), "price")
+                Arguments.of(new ProductSaveDto(null, "Ноутбук", new BigDecimal("500000.00"), 10, "Мощный", Collections.emptyMap()), "categoryId"),
+                Arguments.of(new ProductSaveDto(CATEGORY_ID, "", new BigDecimal("500000.00"), 10, "Мощный", Collections.emptyMap()), "name"),
+                Arguments.of(new ProductSaveDto(CATEGORY_ID, null, new BigDecimal("500000.00"), 10, "Мощный", Collections.emptyMap()), "name"),
+                Arguments.of(new ProductSaveDto(CATEGORY_ID, "   ", new BigDecimal("500000.00"), 10, "Мощный", Collections.emptyMap()), "name"),
+                Arguments.of(new ProductSaveDto(CATEGORY_ID, "Ноутбук", null, 10, "Мощный", Collections.emptyMap()), "price"),
+                Arguments.of(new ProductSaveDto(CATEGORY_ID, "Ноутбук", new BigDecimal("-1.00"), 10, "Мощный", Collections.emptyMap()), "price")
         );
     }
 
@@ -213,8 +242,8 @@ class ProductControllerIT extends BaseIntegrationTest {
                 );
     }
 
-    private Product createNewProduct(Long categoryId, String name, BigDecimal price, String description, Map<String, Object> attrs) {
-        return new Product(null, categoryId, name, price, description, attrs, null);
+    private Product createNewProduct(Long categoryId, String name, BigDecimal price, Integer quantity, String description, Map<String, Object> attrs) {
+        return new Product(null, categoryId, name, price, description, quantity, attrs, null);
     }
 
 }

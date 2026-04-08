@@ -22,6 +22,7 @@ public class Product {
     private String name;
     private BigDecimal price;
     private String description;
+    private Integer quantity;
     private Map<String, Object> attributes;
     @Version
     private Long version;

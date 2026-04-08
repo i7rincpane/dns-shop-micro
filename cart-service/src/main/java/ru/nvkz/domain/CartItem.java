@@ -9,7 +9,6 @@ import org.springframework.data.relational.core.mapping.Table;
 @Setter
 @EqualsAndHashCode(onlyExplicitlyIncluded = true)
 @AllArgsConstructor
-@NoArgsConstructor
 @Table("cart_items")
 public class CartItem {
 
