@@ -21,6 +21,7 @@ import ru.nvkz.dto.CartItemUpdateDto;
 import ru.nvkz.dto.CartResponse;
 
 import java.math.BigDecimal;
+import java.util.List;
 import java.util.stream.Stream;
 
 import static com.github.tomakehurst.wiremock.client.WireMock.*;
@@ -34,6 +35,7 @@ class CartControllerIT extends BaseIntegrationTest {
     private static final Long PRODUCT_ID_NOT_EXIST = 1L;
     private static final Long PRODUCT_ID_2 = 2L;
     private static final Long PRODUCT_ID_3 = 3L;
+    private static final Long PRODUCT_ID_IS_SELECTED_FALSE = 4L;
 
     @Autowired
     private WebTestClient webTestClient;
@@ -44,30 +46,15 @@ class CartControllerIT extends BaseIntegrationTest {
         template.insert(new CartItem(null, USER_ID, PRODUCT_ID_2, 1, true, null))
                 .then(template.insert(
                         new CartItem(null, USER_ID, PRODUCT_ID_3, 30, true, null)))
+                .then(template.insert(
+                        new CartItem(null, USER_ID, PRODUCT_ID_IS_SELECTED_FALSE, 3, false, null)))
                 .block();
 
 
-        wireMock.stubFor(get(urlPathEqualTo("/api/v1/products"))
-                .withQueryParam("ids", equalTo(PRODUCT_ID_2.toString()))
-                .willReturn(aResponse()
-                        .withHeader("Content-type", "application/json")
-                        .withBody("""
-                                [
-                                {"id": 2, "name": "Товар 2", "price": 2200.00, "categoryName": "Электроника"}
-                                ]
-                                """)));
+    }
 
-        wireMock.stubFor(get(urlPathEqualTo("/api/v1/products"))
-                .withQueryParam("ids", equalTo(PRODUCT_ID_NOT_EXIST.toString()))
-                .willReturn(aResponse()
-                        .withHeader("Content-type", "application/json")
-                        .withBody("""
-                                [
-                                {"id": 1, "name": "Товар 1", "price": 800.00, "categoryName": "Электроника"}
-                                ]
-                                """)
-                )
-        );
+    @Test
+    void shouldReturnFullCartWithProductDetails() {
 
         wireMock.stubFor(get(urlPathEqualTo("/api/v1/products"))
                 .withQueryParam("ids", equalTo(PRODUCT_ID_2.toString()))
@@ -77,15 +64,11 @@ class CartControllerIT extends BaseIntegrationTest {
                         .withHeader("Content-Type", "application/json")
                         .withBody("""
                                 [
-                                {"id": 2, "name": "Товар 2", "price": 2200.00, "categoryName": "Электроника"},
-                                {"id": 3, "name": "Товар 3", "price": 2000.00, "categoryName": "Электроника"}
+                                {"id": 2, "name": "Товар 2", "price": 2200.00, "categoryName": "Электроника", "quantity": 100},
+                                {"id": 3, "name": "Товар 3", "price": 2000.00, "categoryName": "Электроника", "quantity": 100}
                                 ]
                                 """)));
 
-    }
-
-    @Test
-    void shouldReturnFullCartWithProductDetails() {
         webTestClient.get().uri("/api/v1/cart")
                 .header("X-User-Id", USER_ID.toString())
                 .exchange()
@@ -106,6 +89,29 @@ class CartControllerIT extends BaseIntegrationTest {
     @ParameterizedTest(name = "{index} => {2}")
     @MethodSource("getParamsForShouldAddCartItem")
     void shouldAddCartItem(CartItemRequest request, int expectedQuantity, String message) {
+        wireMock.stubFor(get(urlPathEqualTo("/api/v1/products"))
+                .withQueryParam("ids", equalTo(PRODUCT_ID_2.toString()))
+                .willReturn(aResponse()
+                        .withHeader("Content-type", "application/json")
+                        .withBody("""
+                                [
+                                {"id": 2, "name": "Товар 2", "price": 2200.00, "categoryName": "Электроника", "quantity": 100}
+                                ]
+                                """)));
+
+        wireMock.stubFor(get(urlPathEqualTo("/api/v1/products"))
+                .withQueryParam("ids", equalTo(PRODUCT_ID_NOT_EXIST.toString()))
+                .willReturn(aResponse()
+                        .withHeader("Content-type", "application/json")
+                        .withBody("""
+                                [
+                                {"id": 1, "name": "Товар 1", "price": 800.00, "categoryName": "Электроника", "quantity": 100}
+                                ]
+                                """)
+                )
+        );
+
+
         webTestClient.post().uri("/api/v1/cart")
                 .header("X-User-Id", USER_ID.toString())
                 .bodyValue(request)
@@ -120,13 +126,23 @@ class CartControllerIT extends BaseIntegrationTest {
 
     @Test
     void shouldUpdateCartItem() {
+        wireMock.stubFor(get(urlPathEqualTo("/api/v1/products"))
+                .withQueryParam("ids", equalTo(PRODUCT_ID_3.toString()))
+                .willReturn(aResponse()
+                        .withHeader("Content-type", "application/json")
+                        .withBody("""
+                                [
+                                {"id": 3, "name": "Товар 3", "price": 2000.00, "categoryName": "Электроника", "quantity": 100}
+                                ]
+                                """)));
+
         webTestClient.patch().uri("/api/v1/cart/{id}", PRODUCT_ID_3)
                 .header("X-User-Id", USER_ID.toString())
-                .bodyValue(new CartItemUpdateDto(5L, false))
+                .bodyValue(new CartItemUpdateDto(5, false))
                 .exchange()
                 .expectStatus().isOk()
                 .expectBody()
-                .jsonPath("$.quantity").isEqualTo(5L)
+                .jsonPath("$.quantity").isEqualTo(5)
                 .jsonPath("$.selected").isEqualTo(false);
 
     }
@@ -135,7 +151,7 @@ class CartControllerIT extends BaseIntegrationTest {
     void shouldRemoveItemWhenQuantityIsZero() {
         webTestClient.patch().uri("/api/v1/cart/{id}", PRODUCT_ID_3)
                 .header("X-User-Id", USER_ID.toString())
-                .bodyValue(new CartItemUpdateDto(0L, null))
+                .bodyValue(new CartItemUpdateDto(0, null))
                 .exchange()
                 .expectStatus().isOk()
                 .expectBody()
@@ -149,30 +165,32 @@ class CartControllerIT extends BaseIntegrationTest {
     }
 
     @Test
-    void shouldClearAllItems() {
-        webTestClient.delete().uri("/api/v1/cart")
+    void shouldClearProductIds() {
+        webTestClient.delete().uri(uriBuilder -> uriBuilder.path("/api/v1/cart")
+                        .queryParam("ids", List.of(PRODUCT_ID_2, PRODUCT_ID_3))
+                        .build())
                 .header("X-User-Id", USER_ID.toString())
+
                 .exchange()
                 .expectStatus().isNoContent();
 
-        assertThat(template.count(Query.query(Criteria.where("user_id").is(USER_ID)
-                        .and("product_id").is(PRODUCT_ID_3)
-                ), CartItem.class)
-                .block()).isZero();
+        List<CartItem> actualProducts = template.select(Query.query(Criteria.where("user_id").is(USER_ID)), CartItem.class)
+                .collectList()
+                .block();
+
+        assertThat(actualProducts)
+                .isNotEmpty()
+                .hasSize(1)
+                .first()
+                .extracting(CartItem::getProductId)
+                .isEqualTo(PRODUCT_ID_IS_SELECTED_FALSE);
     }
-
-
-    private static Stream<Arguments> getParamsForUpdateCartItem() {
-        return Stream.of(
-                Arguments.of(new CartItemUpdateDto(5L, false), "Update quantity and selection"),
-                Arguments.of(new CartItemUpdateDto(0L, false), "remove item when quantity is zero")
-        );
-    }
-
 
     private static Stream<Arguments> getParamsForShouldAddCartItem() {
         return Stream.of(
                 Arguments.of(new CartItemRequest(PRODUCT_ID_2, 10), 11, "Increment existing"),
-                Arguments.of(new CartItemRequest(PRODUCT_ID_NOT_EXIST, 10), 10, "Create new"));
+                Arguments.of(new CartItemRequest(PRODUCT_ID_NOT_EXIST, 10), 10, "Create new"),
+                Arguments.of(new CartItemRequest(PRODUCT_ID_2, 101), 100, "Increment with min product quantity"),
+                Arguments.of(new CartItemRequest(PRODUCT_ID_NOT_EXIST, 101), 100, "Create new with min product quantity"));
     }
 }

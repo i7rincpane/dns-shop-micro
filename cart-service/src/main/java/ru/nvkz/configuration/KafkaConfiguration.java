@@ -14,14 +14,14 @@ import java.util.Map;
 
 @Slf4j
 @Configuration
-public class KafkaConfig {
+public class KafkaConfiguration {
 
     @Bean
     public KafkaReceiver<String, String> kafkaReceiver(KafkaProperties kafkaProperties,
-                                                         @Value("${app.order-events-topic.name}") String topic) {
+                                                       @Value("${app.order-events-topic.name}") String topic) {
         Map<String, Object> props = kafkaProperties.buildConsumerProperties();
         log.info("Settings kafkaReceiver:{}", props);
-        ReceiverOptions <String, String > receiverOptions=  ReceiverOptions. <String, String >create(props).subscription(Collections.singleton(topic));
+        ReceiverOptions<String, String> receiverOptions = ReceiverOptions.<String, String>create(props).subscription(Collections.singleton(topic));
         return KafkaReceiver.create(receiverOptions);
     }
 }

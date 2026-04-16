@@ -17,7 +17,7 @@ import java.util.Map;
 
 @Configuration
 @RequiredArgsConstructor
-public class R2dbcConfig extends AbstractR2dbcConfiguration {
+public class R2dbcConfiguration extends AbstractR2dbcConfiguration {
 
     private final ConnectionFactory connectionFactory;
     private final ObjectMapper objectMapper;

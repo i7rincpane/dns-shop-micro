@@ -11,6 +11,8 @@ import ru.nvkz.dto.CartItemUpdateDto;
 import ru.nvkz.dto.CartResponse;
 import ru.nvkz.service.CartService;
 
+import java.util.List;
+
 
 @RestController
 @RequiredArgsConstructor
@@ -42,7 +44,8 @@ public class CartController {
 
     @DeleteMapping()
     @ResponseStatus(HttpStatus.NO_CONTENT)
-    public Mono<Void> clearCart(@RequestHeader("X-User-Id") Long userId) {
-        return cartService.clearCart(userId);
+    public Mono<Void> clearCart(@RequestHeader("X-User-Id") Long userId,
+                                @RequestParam("ids") List<Long> productIds) {
+        return cartService.clearCart(userId, productIds);
     }
 }

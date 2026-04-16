@@ -37,7 +37,7 @@ public class CartServiceTest {
 
     @Test
     void shouldThrowNotWoundWhenProductDoesNotExist() {
-        when(productClient.getProductAllById(anyList())).thenReturn(Flux.empty());
+        when(productClient.getProductAllByIds(anyList())).thenReturn(Flux.empty());
 
         Mono<CartItem> result = cartService.addItem(userId, productId, quantity);
 

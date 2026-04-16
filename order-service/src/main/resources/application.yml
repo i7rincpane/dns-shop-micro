@@ -56,3 +56,7 @@ app:
       fixed-delay: 5000
     topic: order-events
     limitRate: 10
+  retry:
+    max-attempts: 3
+    min-backoff: 2
+    jitter: 0.75

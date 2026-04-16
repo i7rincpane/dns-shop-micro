@@ -8,10 +8,7 @@ import org.springframework.web.reactive.function.client.WebClient;
 
 
 @Configuration
-public class WebClientConfig {
-
-    @Value("${services.cart-service.url}")
-    private String cartServiceUrl;
+public class WebClientConfiguration {
 
     @Value("${services.product-service.url}")
     private String productServiceUrl;
@@ -19,13 +16,6 @@ public class WebClientConfig {
     @Bean
     public WebClient.Builder webClientBuilder() {
         return WebClient.builder();
-    }
-
-    @Bean
-    public WebClient cartWebClient(WebClient.Builder builder) {
-        return builder
-                .baseUrl(cartServiceUrl)
-                .build();
     }
 
     @Bean

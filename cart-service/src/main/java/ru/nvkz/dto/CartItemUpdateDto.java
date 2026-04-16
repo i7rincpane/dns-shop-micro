@@ -1,5 +1,5 @@
 package ru.nvkz.dto;
 
-public record CartItemUpdateDto(Long quantity,
+public record CartItemUpdateDto(Integer quantity,
                                 Boolean isSelected) {
 }

@@ -40,27 +40,31 @@ public class CartService {
                                 .then(Mono.empty());
                     }
 
+                    if (updateDto.quantity() != null) {
+                        return updateWithStockCheck(productId, updateDto, cartItem);
+                    }
+
+
                     cartItemMapper.updateCartItemFromDto(updateDto, cartItem);
                     return cartItemRepository.save(cartItem);
                 })
                 .retryWhen(Retry.max(3).filter(ex -> ex instanceof OptimisticLockingFailureException));
     }
 
-    //POST потому что клиент говорит - "Я хочу новый товар", по сути идет создание товара.
-    //защищен не полностью при дабл клиеке, может переключить счетчик два раза(не критично), но второй товар не добавит из за уникального констрейнта
-    //по хорошему можно одним запросом проверять констренйт и в случае ошибки обновлять счетчик.
     @Transactional
     public Mono<CartItem> addItem(Long userId, Long productId, int quantity) {
-        return productClient.getProductAllById(List.of(productId))
+        return productClient.getProductAllByIds(List.of(productId))
                 .singleOrEmpty()
                 .switchIfEmpty(Mono.error(new NotFoundException("error.product.notfound", productId)))
-                .flatMap(product ->
-                        cartItemRepository.findByUserIdAndProductId(userId, productId)
-                                .flatMap(cartItem -> {
-                                    cartItem.setQuantity(cartItem.getQuantity() + quantity);
-                                    return cartItemRepository.save(cartItem);
-                                }))
-                .switchIfEmpty(Mono.defer(() -> cartItemRepository.save(new CartItem(null, userId, productId, quantity, true, null))));
+                .flatMap(product -> {
+                    int initialQty = Math.min(quantity, product.quantity());
+                    return cartItemRepository.findByUserIdAndProductId(userId, productId)
+                            .flatMap(cartItem -> {
+                                cartItem.setQuantity(Math.min(cartItem.getQuantity() + quantity, product.quantity()));
+                                return cartItemRepository.save(cartItem);
+                            })
+                            .switchIfEmpty(Mono.defer(() -> cartItemRepository.save(new CartItem(null, userId, productId, initialQty, true, null))));
+                });
     }
 
     public Mono<CartResponse> getCartByUserId(Long id) {
@@ -75,14 +79,14 @@ public class CartService {
                     List<Long> ids = items.stream()
                             .map(CartItem::getProductId)
                             .toList();
-                    return productClient.getProductAllById(ids)
+                    return productClient.getProductAllByIds(ids)
                             .collectMap(ProductFullResponse::id)
                             .map(productMap -> buildCartResponse(items, productMap));
                 });
     }
 
-    public Mono<Void> clearCart(Long userId) {
-        return cartItemRepository.deleteAllByUserId(userId);
+    public Mono<Void> clearCart(Long userId, List<Long> productIds) {
+        return cartItemRepository.deleteAllByUserIdAndProductIds(userId, productIds);
     }
 
     private CartResponse buildCartResponse(List<CartItem> items, Map<Long, ProductFullResponse> productMap) {
@@ -108,6 +112,18 @@ public class CartService {
                 .filter(CartItemDto::isSelected)
                 .map(CartItemDto::subTotal)
                 .reduce(BigDecimal.ZERO, BigDecimal::add));
+    }
+
+    private Mono<CartItem> updateWithStockCheck(Long productId, CartItemUpdateDto updateDto, CartItem cartItem) {
+        return productClient.getProductAllByIds(List.of(productId))
+                .singleOrEmpty()
+                .switchIfEmpty(Mono.error(new NotFoundException("error.product.notfound", productId)))
+                .flatMap(product -> {
+                            cartItemMapper.updateCartItemFromDto(updateDto, cartItem);
+                            cartItem.setQuantity(Math.min(updateDto.quantity(), product.quantity()));
+                            return cartItemRepository.save(cartItem);
+                        }
+                );
     }
 
 }

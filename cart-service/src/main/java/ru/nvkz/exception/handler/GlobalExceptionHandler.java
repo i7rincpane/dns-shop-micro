@@ -1,5 +1,6 @@
 package ru.nvkz.exception.handler;
 
+import io.github.resilience4j.circuitbreaker.CallNotPermittedException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.MessageSource;
@@ -21,6 +22,19 @@ import java.util.stream.Collectors;
 public class GlobalExceptionHandler {
 
     private final MessageSource messageSource;
+
+    @ExceptionHandler(CallNotPermittedException.class)
+    public ResponseEntity<Object> handleCircuitBreakerOpen(CallNotPermittedException ex) {
+        String cbName = ex.getCausingCircuitBreakerName();
+
+        log.error("Circuit breaker '{}' is OPEN. Preventing calls to downstream service", cbName);
+
+        return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
+                .body(Map.of(
+                        "error", "Service is temporarily busy",
+                        "message", "Please try again in a few moments"
+                ));
+    }
 
     @ExceptionHandler(WebExchangeBindException.class)
     public ResponseEntity<Map<String, String>> handleValidationErrors(WebExchangeBindException ex) {

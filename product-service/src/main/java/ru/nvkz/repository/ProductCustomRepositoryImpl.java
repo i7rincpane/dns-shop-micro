@@ -4,7 +4,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.r2dbc.core.DatabaseClient;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
-import ru.nvkz.configuration.R2dbcConfig;
+import ru.nvkz.configuration.R2dbcConfiguration;
 import ru.nvkz.dto.CategoryFiltersResponse;
 import ru.nvkz.dto.FilterValue;
 import ru.nvkz.dto.ProductFullResponse;
@@ -13,14 +13,13 @@ import ru.nvkz.dto.ProductSearchRequest;
 import java.math.BigDecimal;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.Set;
 
 @RequiredArgsConstructor
 public class ProductCustomRepositoryImpl implements ProductCustomRepository {
     private final DatabaseClient databaseClient;
 
-    private final R2dbcConfig.MapToJsonConverter mapToJsonConverter;
-    private final R2dbcConfig.JsonToMapConverter jsonToMapConverter;
+    private final R2dbcConfiguration.MapToJsonConverter mapToJsonConverter;
+    private final R2dbcConfiguration.JsonToMapConverter jsonToMapConverter;
 
     private record RowData(String key, String value, Long count) {}
 

@@ -3,6 +3,7 @@ package ru.nvkz.service;
 import io.r2dbc.postgresql.codec.Json;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.jetbrains.annotations.NotNull;
 import org.springframework.data.r2dbc.core.R2dbcEntityTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -42,21 +43,12 @@ public class OrderService {
                 .switchIfEmpty(Mono.error(new NotFoundException("Корзина для юзера не найдена", userId)))
                 .flatMap(cartResponse -> {
 
-                    List<CartItemDto> selectedItems = cartResponse.items()
-                            .stream()
-                            .filter(CartItemDto::isSelected)
-                            .toList();
+                    List<CartItemDto> selectedItems = cartResponse.items();
+                    selectedItems.removeIf(cartItemDto -> !cartItemDto.isSelected());
 
+                    List<StockUpdateRequest> stockUpdatesRequest = mapToStockUpdateRequest(selectedItems);
 
-                    if (selectedItems.isEmpty()) {
-                        return Mono.error(new RuntimeException("Не возможно создать заказ с пустой корзиной"));
-                    }
-
-                    List<StockUpdateRequest> stockRequest = selectedItems.stream()
-                            .map(cartItemDto -> new StockUpdateRequest(cartItemDto.productId(), cartItemDto.quantity()))
-                            .toList();
-
-                    return productClient.decrease(stockRequest)
+                    return productClient.decrease(stockUpdatesRequest)
                             .then(orderRepository.save(new Order(
                                             null,
                                             userId,
@@ -99,10 +91,16 @@ public class OrderService {
                                                         .thenReturn(savedOrder);
                                             }
 
-                                    ).onErrorResume(ex -> productClient.increase(stockRequest)
+                                    ).onErrorResume(ex -> productClient.increase(stockUpdatesRequest)
                                             .then(Mono.error(ex)))
                             );
 
                 });
+    }
+
+    private List<StockUpdateRequest> mapToStockUpdateRequest(List<CartItemDto> selectedItems) {
+        return selectedItems.stream()
+                .map(cartItemDto -> new StockUpdateRequest(cartItemDto.productId(), cartItemDto.quantity()))
+                .toList();
     }
 }

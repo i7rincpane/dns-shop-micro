@@ -11,7 +11,7 @@ import java.util.Map;
 
 @Slf4j
 @Configuration
-public class KafkaConfig {
+public class KafkaConfiguration {
 
     @Bean
     public KafkaSender<String, String> kafkaSender(KafkaProperties kafkaProperties) {

@@ -60,6 +60,14 @@ paths:
         schema:
           type: integer
           format: int64
+      - name: ids
+        in: query
+        required: true
+        schema:
+          type: array
+          items:
+            type: integer
+            format: int64
       responses:
         "204":
           description: No Content
@@ -132,7 +140,7 @@ components:
       properties:
         quantity:
           type: integer
-          format: int64
+          format: int32
         isSelected:
           type: boolean
     CartItemDto:

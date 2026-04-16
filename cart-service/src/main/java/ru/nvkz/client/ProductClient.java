@@ -9,13 +9,16 @@ import ru.nvkz.dto.ProductFullResponse;
 
 import java.util.List;
 
+import static reactor.netty.http.HttpConnectionLiveness.log;
+
 @Component
 @RequiredArgsConstructor
 public class ProductClient {
     private final WebClient productWebClient;
 
     @CircuitBreaker(name = "productService")
-    public Flux<ProductFullResponse> getProductAllById(List<Long> productIds) {
+    public Flux<ProductFullResponse> getProductAllByIds(List<Long> productIds) {
+        log.info("Trying to get a list of products {}", productIds);
         return productWebClient.get()
                 .uri(uriBuilder -> uriBuilder
                         .path("/api/v1/products")
