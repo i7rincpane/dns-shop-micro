@@ -42,7 +42,17 @@ services:
       - "5435:5432"
     networks:
       - dns-network
-  
+
+  payment-service-db:
+    image: postgres:16-alpine
+    container_name: payment-service-db
+    environment:
+      POSTGRES_DB: payment_service_db
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5436:5432"
+    networks:
+      - dns-network
 
   user-service:
     build:
@@ -133,6 +143,29 @@ services:
     networks:
       - dns-network
 
+  payment-service:
+    build:
+      context: .
+      dockerfile: payment-service/Dockerfile
+    container_name: payment-service
+    ports:
+      - "8085:8085"
+    environment:
+      SPRING_R2DBC_URL: r2dbc:postgresql://payment-service-db:5432/payment_service_db
+      SPRING_R2DBC_USERNAME: postgres
+      SPRING_R2DBC_PASSWORD: postgres
+
+      SPRING_LIQUIBASE_URL: jdbc:postgresql://payment-service-db:5432/payment_service_db
+      SPRING_LIQUIBASE_USER: postgres
+      SPRING_LIQUIBASE_PASSWORD: postgres
+
+      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafkaserver:9094
+    depends_on:
+      - payment-service-db
+      - kafkaserver
+    networks:
+      - dns-network
+
   zookeeper:
     image: wurstmeister/zookeeper:latest
     ports:
@@ -150,7 +183,7 @@ services:
       - KAFKA_LISTENER_SECURITY_PROTOCOL_MAP=INSIDE:PLAINTEXT,OUTSIDE:PLAINTEXT
       - KAFKA_INTER_BROKER_LISTENER_NAME=INSIDE
       - KAFKA_ZOOKEEPER_CONNECT=zookeeper:2181
-      - KAFKA_CREATE_TOPICS=order-events:3:1
+      - KAFKA_CREATE_TOPICS=order-events:3:1,payment-events:3:1
     depends_on:
       - zookeeper
     networks:

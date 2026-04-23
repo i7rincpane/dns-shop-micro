@@ -17,6 +17,12 @@ spring:
 
   kafka:
     bootstrap-servers: localhost:9092
+    consumer:
+      group-id: order-service-group-v2
+      auto-offset-reset: earliest
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      enable-auto-commit: false
     producer:
       acks: all
       retries: 5
@@ -51,6 +57,9 @@ logging:
     org.springframework.r2dbc: DEBUG
 
 app:
+  payment-events-topic:
+    name: payment-events
+    limitRate: 10
   outbox:
     scheduler:
       fixed-delay: 5000

@@ -1,3 +1,108 @@
 plugins {
+    // Объявляем плагины в корне, но ставим apply false.
+    // Если применить spring-boot в самом корне, Gradle будет пытаться собрать исполняемый jar-файл из пустой корневой папки, и всё упадет.
     id 'java'
+    id 'jacoco'
+    alias(libs.plugins.spring.boot) apply false
+    alias(libs.plugins.spring.dependency.management) apply false
+}
+
+subprojects {
+    // Здесь мы ПРИМЕНЯЕМ плагины ко всем вложенным папкам (сервисам)
+    apply plugin: 'java'
+    apply plugin: 'org.springframework.boot'
+    apply plugin: 'io.spring.dependency-management'
+    apply plugin: 'jacoco'
+
+    jacoco {
+        toolVersion = libs.versions.jacoco.get()
+    }
+
+
+    // Групповые настройки, чтобы не дублировать их в каждом build.gradle
+    group = 'ru.nvkz'
+    version = '0.0.1-SNAPSHOT'
+
+    // Указываем версию Java для всех (берем из нашего libs.versions.toml)
+    java {
+        toolchain {
+            languageVersion = JavaLanguageVersion.of(libs.versions.java.get())
+        }
+    }
+
+    repositories {
+        mavenCentral()
+    }
+
+    dependencies {
+        // --- 1. WEB & CORE ---
+        // Эти стартеры нужны абсолютно в каждом нашем сервисе
+        implementation libs.boot.starter.webflux      // Реактивный движок
+        implementation libs.boot.starter.validation   // Аннотации @NotNull, @Positive и т.д.
+        implementation libs.boot.starter.actuator     // Метрики и health-checks (/actuator/health)
+        implementation libs.boot.starter.aop          // Для работы CircuitBreaker и логирования
+
+        // --- 2. LOMBOK ---
+        // Инструмент для автогенерации геттеров/сеттеров
+        compileOnly "org.projectlombok:lombok:${libs.versions.lombok.get()}"
+        annotationProcessor "org.projectlombok:lombok:${libs.versions.lombok.get()}"
+        testCompileOnly "org.projectlombok:lombok:${libs.versions.lombok.get()}"
+        testAnnotationProcessor "org.projectlombok:lombok:${libs.versions.lombok.get()}"
+
+        // --- 3. TESTING ---
+        // База для тестов
+        testImplementation libs.boot.starter.test     // JUnit, Mockito, AssertJ
+        testImplementation libs.reactor.test          // StepVerifier для реактивных стримов
+
+        // --- БД и Миграции ---
+        implementation libs.data.r2dbc
+        implementation libs.r2dbc.postgresql
+        implementation 'org.springframework.boot:spring-boot-starter-liquibase'
+        implementation libs.spring.jdbc
+        runtimeOnly libs.postgresql.jdbc
+
+        // --- Mapstruct (Мапперы) ---
+        implementation 'org.mapstruct:mapstruct:1.6.0.Beta1'
+        annotationProcessor 'org.mapstruct:mapstruct-processor:1.6.0.Beta1'
+        annotationProcessor 'org.projectlombok:lombok-mapstruct-binding:0.2.0'
+
+        // --- Логирование ---
+        implementation 'org.slf4j:slf4j-api:2.0.17'
+        implementation 'ch.qos.logback:logback-classic:1.5.32'
+
+        // --- Resilience & Docs ---
+        implementation "org.springframework.cloud:spring-cloud-starter-circuitbreaker-reactor-resilience4j:5.0.1"
+        implementation 'org.springdoc:springdoc-openapi-starter-webflux-ui:3.0.2'
+
+        // --- Тестовые утилиты ---
+        testImplementation libs.webtestclient
+        testImplementation libs.testcontainers.jupiter
+        testImplementation libs.testcontainers.postgresql
+        testImplementation libs.wiremock
+
+        implementation 'org.springframework.boot:spring-boot-starter-kafka'
+        implementation 'io.projectreactor.kafka:reactor-kafka:1.3.25'
+
+    }
+
+    jacocoTestReport {
+        reports {
+            html.required = true
+        }
+        afterEvaluate {
+            classDirectories.setFrom(files(classDirectories.files.collect {
+                fileTree(dir: it, exclude: [
+                        "ru/nvkz/*Application.class", // Маска для всех сервисов
+                        "ru/nvkz/config/**",
+                        "ru/nvkz/domain/**",
+                        "ru/nvkz/dto/**"
+                ])
+            }))
+        }
+    }
+
+    tasks.named('test') {
+        useJUnitPlatform()
+        finalizedBy tasks.named('jacocoTestReport')
+    }
 }
