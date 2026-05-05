@@ -11,6 +11,10 @@ import org.springframework.web.reactive.function.client.WebClient;
 import reactor.util.retry.Retry;
 
 import java.time.Duration;
+import java.util.concurrent.TimeoutException;
+import java.net.ConnectException;
+
+import io.r2dbc.spi.R2dbcException;
 
 
 @Slf4j
@@ -45,7 +49,7 @@ public class WebClientConfiguration {
 
 
     @Bean
-    public Retry retryDefault (RetryDefaultProperty property){
+    public Retry retryDefault(RetryDefaultProperty property) {
 
         return Retry.backoff(property.maxAttempts(), Duration.ofSeconds(property.minBackoff()))
                 .jitter(property.jitter())
@@ -55,6 +59,20 @@ public class WebClientConfiguration {
                     return retrySignal.failure();
                 });
 
+    }
+
+    @Bean
+    public Retry kafkaRetry(RetryDefaultProperty property) {
+        return Retry.backoff(property.maxAttempts(), Duration.ofSeconds(property.minBackoff()))
+                .jitter(property.jitter())
+                .filter(ex -> ex instanceof ServiceException
+                        || ex instanceof ConnectException
+                        || ex instanceof R2dbcException
+                        || ex instanceof TimeoutException)
+                .onRetryExhaustedThrow((retryBackoffSpec, retrySignal) -> {
+                    log.error("Kakfka has exhausted all attempts: ({})", retrySignal.totalRetries());
+                    return retrySignal.failure();
+                });
     }
 
 }

@@ -1,14 +1,16 @@
 package ru.nvkz.domain;
 
-import lombok.*;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.EqualsAndHashCode;
+import lombok.Getter;
+import lombok.Setter;
 import org.springframework.data.annotation.Id;
 import org.springframework.data.annotation.Version;
 import org.springframework.data.relational.core.mapping.Table;
 
 import java.math.BigDecimal;
 import java.time.OffsetDateTime;
-import java.util.UUID;
-
 
 @Getter
 @Setter
@@ -23,7 +25,7 @@ public class Payment {
     private Long orderId;
     private Long userId;
     private PaymentStatus status;
-    private BigDecimal amount ;
+    private BigDecimal amount;
     private OffsetDateTime createdAt;
     @Version
     private Long version;

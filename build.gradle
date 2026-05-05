@@ -13,10 +13,28 @@ subprojects {
     apply plugin: 'org.springframework.boot'
     apply plugin: 'io.spring.dependency-management'
     apply plugin: 'jacoco'
+    apply plugin: 'checkstyle'
+    apply plugin: 'pmd'
 
     jacoco {
         toolVersion = libs.versions.jacoco.get()
     }
+
+    checkstyle {
+        toolVersion = '10.12.5'
+        configFile = rootProject.file('configuration/checkstyle/checkstyle.xml')
+        ignoreFailures = false
+        showViolations = true
+    }
+
+    pmd {
+        consoleOutput = true
+        toolVersion = '7.1.0'
+        ruleSetFiles = rootProject.files(rootProject.file('configuration/pmd/ruleset.xml'))
+        ignoreFailures = false
+    }
+
+
 
 
     // Групповые настройки, чтобы не дублировать их в каждом build.gradle
@@ -105,4 +123,9 @@ subprojects {
         useJUnitPlatform()
         finalizedBy tasks.named('jacocoTestReport')
     }
+
+
+
+
+
 }

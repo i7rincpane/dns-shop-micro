@@ -28,7 +28,8 @@ public class OrderEventListener implements CommandLineRunner {
     public void run(String... args) throws Exception {
         kafkaReceiver.receive()
                 .limitRate(limitRate)
-                .flatMap(record -> Mono.fromCallable(() -> objectMapper.readValue(record.value(), OrderCreatedEvent.class))
+                .flatMap(record -> Mono.fromCallable(() ->
+                                objectMapper.readValue(record.value(), OrderCreatedEvent.class))
                         .flatMap(event -> paymentRepository.findByOrderId(event.orderId())
                                 .switchIfEmpty(paymentRepository.save(Payment.builder()
                                         .orderId(event.orderId())
@@ -38,7 +39,9 @@ public class OrderEventListener implements CommandLineRunner {
                                         .build()))).doOnSuccess(v -> {
                             long offset = record.offset();
                             record.receiverOffset().acknowledge();
-                            log.info("Items successfully processed, partition {}, offset {} confirmed", record.partition(), offset);
+                            log.info("Items successfully processed, partition {}, offset {} confirmed",
+                                    record.partition(),
+                                    offset);
                         })
                         .onErrorResume(ex -> {
                             log.error("Order processing error: {}", ex.getMessage());

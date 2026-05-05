@@ -63,7 +63,14 @@ public class CartService {
                                 cartItem.setQuantity(Math.min(cartItem.getQuantity() + quantity, product.quantity()));
                                 return cartItemRepository.save(cartItem);
                             })
-                            .switchIfEmpty(Mono.defer(() -> cartItemRepository.save(new CartItem(null, userId, productId, initialQty, true, null))));
+                            .switchIfEmpty(Mono.defer(() ->
+                                    cartItemRepository.save(new CartItem(
+                                            null,
+                                            userId,
+                                            productId,
+                                            initialQty,
+                                            true,
+                                            null))));
                 });
     }
 

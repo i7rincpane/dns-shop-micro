@@ -41,6 +41,11 @@ public class GlobalExceptionHandler {
         return getResponseEntity(ex, serverWebExchange, HttpStatus.NOT_FOUND);
     }
 
+    @ExceptionHandler(BadRequestException.class)
+    public ResponseEntity<String> handleBadRequest(BadRequestException ex, ServerWebExchange serverWebExchange) {
+        return getResponseEntity(ex, serverWebExchange, HttpStatus.BAD_REQUEST);
+    }
+
     @ExceptionHandler(Exception.class)
     public ResponseEntity<String> handleAll(Exception ex) {
         log.error("SYSTEM ERROR OCCURRED: ", ex);
@@ -60,7 +65,9 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(ex.getStatusCode()).body(ex.getMessage());
     }
 
-    private ResponseEntity<String> getResponseEntity(DnsShopException ex, ServerWebExchange serverWebExchange, HttpStatus unprocessableContent) {
+    private ResponseEntity<String> getResponseEntity(DnsShopException ex,
+                                                     ServerWebExchange serverWebExchange,
+                                                     HttpStatus unprocessableContent) {
         Locale locale = serverWebExchange.getLocaleContext().getLocale();
         String message = messageSource.getMessage(ex.getMessage(), ex.getArgs(), locale);
         log.warn(message);

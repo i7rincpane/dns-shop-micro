@@ -31,12 +31,15 @@ public class OrderEventListener implements CommandLineRunner {
     public void run(String... args) throws Exception {
         kafkaReceiver.receive()
                 .limitRate(limitRate)
-                .flatMap(record -> Mono.fromCallable(() -> objectMapper.readValue(record.value(), OrderCreatedEvent.class))
-                        .flatMap(orderCreatedEvent -> cartService.clearCart(orderCreatedEvent.userId(), getProductIds(orderCreatedEvent)))
+                .flatMap(record -> Mono.fromCallable(() ->
+                                objectMapper.readValue(record.value(), OrderCreatedEvent.class))
+                        .flatMap(orderCreatedEvent ->
+                                cartService.clearCart(orderCreatedEvent.userId(), getProductIds(orderCreatedEvent)))
                         .doOnSuccess(v -> {
                             long offset = record.offset();
                             record.receiverOffset().acknowledge();
-                            log.info("Items successfully removed from cart, partition {}, offset {} confirmed", record.partition(), offset);
+                            log.info("Items successfully removed from cart, partition {}, offset {} confirmed",
+                                    record.partition(), offset);
                         })
                         .onErrorResume(ex -> {
                             log.error("Skip bad message at offset {}: {}", record.offset(), ex.getMessage());

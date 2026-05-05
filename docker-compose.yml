@@ -114,6 +114,7 @@ services:
       SPRING_KAFKA_BOOTSTRAP_SERVERS: kafkaserver:9094
     depends_on:
       - cart-service-db
+      - kafkaserver
     networks:
       - dns-network
 
@@ -175,6 +176,8 @@ services:
 
   kafkaserver:
     image: wurstmeister/kafka:latest
+    container_name: kafkaserver
+    hostname: kafkaserver
     ports:
       - "9092:9092"
     environment:

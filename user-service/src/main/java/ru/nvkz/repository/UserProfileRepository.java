@@ -6,7 +6,8 @@ import reactor.core.publisher.Mono;
 import ru.nvkz.domain.UserProfile;
 
 @Repository
-public interface UserProfileRepository extends R2dbcRepository<UserProfile, Long> {
+public interface UserProfileRepository extends R2dbcRepository<UserProfile, Long>, CustomUserProfileRepository {
     Mono<UserProfile> findByUserId(Long userId);
+
     Mono<Void> deleteByUserId(Long userId);
 }

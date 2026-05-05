@@ -1,6 +1,10 @@
 package ru.nvkz.mapper;
 
-import org.mapstruct.*;
+import org.mapstruct.BeanMapping;
+import org.mapstruct.Mapper;
+import org.mapstruct.Mapping;
+import org.mapstruct.MappingTarget;
+import org.mapstruct.NullValuePropertyMappingStrategy;
 import ru.nvkz.domain.CartItem;
 import ru.nvkz.dto.CartItemUpdateDto;
 

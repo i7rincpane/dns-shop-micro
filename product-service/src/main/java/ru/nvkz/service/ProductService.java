@@ -1,6 +1,7 @@
 package ru.nvkz.service;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -8,7 +9,12 @@ import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.util.retry.Retry;
 import ru.nvkz.domain.Product;
-import ru.nvkz.dto.*;
+import ru.nvkz.dto.CategoryFiltersResponse;
+import ru.nvkz.dto.ProductFullResponse;
+import ru.nvkz.dto.ProductSaveDto;
+import ru.nvkz.dto.ProductSearchRequest;
+import ru.nvkz.dto.ProductUpdateDto;
+import ru.nvkz.dto.StockUpdateRequest;
 import ru.nvkz.exception.handler.NotFoundException;
 import ru.nvkz.exception.handler.OutOfStockException;
 import ru.nvkz.mapper.ProductMapper;
@@ -17,6 +23,7 @@ import ru.nvkz.repository.ProductRepository;
 
 import java.util.List;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class ProductService {
@@ -33,7 +40,9 @@ public class ProductService {
                 .switchIfEmpty(Mono.error(new NotFoundException("error.product.notfound", id)));
     }
 
-    public Flux<ProductFullResponse> findAllByFilter(ProductSearchRequest productSearchRequest, Integer pageSize, Integer pageNumber) {
+    public Flux<ProductFullResponse> findAllByFilter(ProductSearchRequest productSearchRequest,
+                                                     Integer pageSize,
+                                                     Integer pageNumber) {
         return productRepository.findAllByFilter(productSearchRequest, pageSize, pageNumber);
     }
 
@@ -65,24 +74,36 @@ public class ProductService {
     @Transactional
     public Mono<Void> decreaseStock(List<StockUpdateRequest> requests) {
         return Flux.fromIterable(requests)
-                .flatMap(request -> productRepository.decreaseStock(request.productId(),
-                                request.quantity())
-                        .flatMap(updatedRows -> {
-                                    if (updatedRows == 0) {
-                                        return Mono.error(new OutOfStockException("error.product.outofstock", request.productId(), request.quantity()));
-                                    }
-                                    return Mono.empty();
-                                }
-                        )
+                .flatMap(request -> {
+                            log.info("Decrease Stock of product {} in quantity {}",
+                                    request.productId(),
+                                    request.quantity());
+                            return productRepository.decreaseStock(request.productId(),
+                                            request.quantity())
+                                    .flatMap(updatedRows -> {
+                                                if (updatedRows == 0) {
+                                                    return Mono.error(
+                                                            new OutOfStockException("error.product.outofstock",
+                                                                    request.productId(),
+                                                                    request.quantity()));
+                                                }
+                                                return Mono.empty();
+                                            }
+                                    );
+                        }
                 )
                 .then(); // просто сигнализируем об успехе,  превращаем Flux в Mono<Void>
     }
 
     @Transactional
     public Mono<Void> increaseStock(List<StockUpdateRequest> requests) {
+
         return Flux.fromIterable(requests)
-                .flatMap(request -> productRepository.increaseStock(request.productId(),
-                        request.quantity()))
+                .flatMap(request -> {
+                    log.info("Increase of product {} in quantity {}", request.productId(), request.quantity());
+                    return productRepository.increaseStock(request.productId(),
+                            request.quantity());
+                })
                 .then();
     }
 

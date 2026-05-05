@@ -2,61 +2,89 @@ package ru.nvkz.listener;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.kafka.clients.producer.ProducerRecord;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.stereotype.Component;
 import reactor.core.publisher.Mono;
 import reactor.kafka.receiver.KafkaReceiver;
+import reactor.kafka.receiver.ReceiverRecord;
+import reactor.kafka.sender.KafkaSender;
+import reactor.kafka.sender.SenderRecord;
+import reactor.util.retry.Retry;
 import ru.nvkz.event.PaymentEvent;
-import ru.nvkz.event.PaymentStatus;
-import ru.nvkz.service.OrderService;
+import ru.nvkz.service.PaymentProcessingService;
 import tools.jackson.databind.ObjectMapper;
 
+import java.nio.charset.StandardCharsets;
+
+@Slf4j
 @Component
 @RequiredArgsConstructor
-@Slf4j
 public class PaymentEventListener implements CommandLineRunner {
 
-
-    private final KafkaReceiver<String, String> kafkaReceiver;
-    private final OrderService orderService;
+    private final KafkaReceiver<String, String> receiver;
     private final ObjectMapper objectMapper;
+    private final PaymentProcessingService processingService;
+    private final Retry kafkaRetry;
+    private final KafkaSender<String, String> sender;
+
     @Value("${app.payment-events-topic.limitRate}")
     private int limitRate;
 
     @Override
     public void run(String... args) throws Exception {
-        kafkaReceiver.receive()
-                .flatMap(record -> Mono.fromCallable(() -> objectMapper.readValue(record.value(), PaymentEvent.class))
-                        .flatMap(paymentEvent ->
+        receiver.receive()
+                .limitRate(limitRate)
+                .flatMap(record -> Mono.fromCallable(() ->
+                                objectMapper.readValue(record.value(), PaymentEvent.class))
+                        .flatMap(processingService::process)
+                        .retryWhen(kafkaRetry)
+                        .doOnSuccess(v -> record.receiverOffset().acknowledge())
 
-                                switch (paymentEvent.status()) {
-                                    case PaymentStatus.SUCCESS -> handleSuccess(paymentEvent);
-                                    case PaymentStatus.FAILED -> handleFailure(paymentEvent);
-                                    default -> Mono.empty();
-                                }
-                        ).doOnSuccess(v -> record.receiverOffset().acknowledge())
                         .onErrorResume(ex -> {
-                            log.error("Error processing payment event: {}", ex.getMessage());
-                            return Mono.empty();
+                            log.error("The message {} has been completely failed. Goes to DLQ. Error: {}",
+                                    record.key(),
+                                    ex.getMessage());
+                            return sendToDlq(record, ex)
+                                    .then(Mono.fromRunnable(() ->
+                                            record.receiverOffset().acknowledge()));
                         })
-                )
 
+                ).onErrorResume(ex -> {
+                    log.error("Kafka consumer flow failed", ex);
+                    return Mono.empty(); // Не убиваем поток
+                })
                 .subscribe();
-
     }
 
-    private Mono<Void> handleSuccess(PaymentEvent event) {
-        return orderService.markAsPaid(event.orderId())
-                .doOnSuccess(order -> log.info("Order {} has been successfully transferred to the PAID status", event.orderId()))
-                .then();
-    }
+    private Mono<Void> sendToDlq(ReceiverRecord<String, String> record, Throwable ex) {
 
-    private Mono<Void> handleFailure(PaymentEvent event) {
-        return orderService.compensateOrder(event.orderId())
-                .doOnSuccess(order -> log.warn("The compensation of the order {} is completed. Status: CANCELLED", event.orderId()))
-                .then();
-    }
+        String dlqTopic = record.topic() + ".dlq";
 
+        ProducerRecord<String, String> producerRecord = new ProducerRecord<>(
+                dlqTopic,
+                record.key(),
+                record.value()
+        );
+
+        producerRecord.headers().add("x-dead-letter-reason", ex.getMessage().getBytes(StandardCharsets.UTF_8));
+        producerRecord.headers().add("x-original-topic", record.topic().getBytes(StandardCharsets.UTF_8));
+
+        log.warn("Send order message {} to DLQ: {}", record.key(), ex.getMessage());
+
+        return sender.send(Mono.just(SenderRecord.create(producerRecord, record.key())))
+                .next() // так как Mono.just отправляем, то и результат, подтверждения которого мы ждем, всего один
+                .flatMap(result -> {
+                    if (result.exception() != null) {
+                        // Ошибка отправки в кафку, нельзя подтверждать офсет.
+                        log.error("Error sending to Kafka for {} {}: {}",
+                                dlqTopic, record.key(), result.exception().getMessage());
+                        return Mono.error(result.exception());
+                    }
+                    log.info("Message successfully added to the corrupted queue {} {}", dlqTopic, record.key());
+                    return Mono.empty();
+                });
+    }
 
 }

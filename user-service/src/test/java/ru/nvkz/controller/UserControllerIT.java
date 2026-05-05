@@ -28,7 +28,8 @@ class UserControllerIT extends BaseIntegrationTest {
     @Test
     void shouldCreateUserAndFindByIdAndFindAllByFilter() {
         RegistrationRequest registrationRequest = new RegistrationRequest(
-                "test@mail.ru", "password", "Ivan", "Ivanov", "", LocalDate.of(1992, Month.FEBRUARY, 23)
+                "test@mail.ru", "password", "Ivan", "Ivanov", "",
+                LocalDate.of(1992, Month.FEBRUARY, 23)
         );
 
         User savedUser = webTestClient.post().uri("/api/v1/users")
@@ -81,8 +82,10 @@ class UserControllerIT extends BaseIntegrationTest {
 
     @Test
     void shouldPatchUserProfile() {
-        var regRequest = new RegistrationRequest("patch@test.com", "pass12345", "Ivan", "Ivanov", "123", LocalDate.now().minusYears(20));
-        User savedUser = webTestClient.post().uri("/api/v1/users").bodyValue(regRequest).exchange().returnResult(User.class).getResponseBody().blockFirst();
+        var regRequest = new RegistrationRequest("patch@test.com", "pass12345", "Ivan",
+                "Ivanov", "123", LocalDate.now().minusYears(20));
+        User savedUser = webTestClient.post().uri("/api/v1/users").bodyValue(regRequest).exchange()
+                .returnResult(User.class).getResponseBody().blockFirst();
 
         var updateDto = new UserUpdateDto(null, null, "777-777", null);
 
@@ -99,11 +102,21 @@ class UserControllerIT extends BaseIntegrationTest {
 
     private static Stream<Arguments> invalidRegistrationRequests() {
         return Stream.of(
-                Arguments.of(new RegistrationRequest("not-an-email", "88888888", "Ivan", "Ivanov", "", LocalDate.of(1992, Month.FEBRUARY, 23)), "email"),
-                Arguments.of(new RegistrationRequest("", "88888888", "Ivan", "Ivanov", "", LocalDate.of(1992, Month.FEBRUARY, 23)), "email"),
-                Arguments.of(new RegistrationRequest("test@mail.ru", "123", "Ivan", "Ivanov", "", LocalDate.of(1992, Month.FEBRUARY, 23)), "password"),
-                Arguments.of(new RegistrationRequest("test@mail.ru", "88888888", "", "Ivanov", "", LocalDate.of(1992, Month.FEBRUARY, 23)), "name"),
-                Arguments.of(new RegistrationRequest("test@mail.ru", "88888888", "Ivan", "Ivanov", "", LocalDate.now().plusDays(1)), "birthdate")
+                Arguments.of(new RegistrationRequest("not-an-email", "88888888",
+                        "Ivan", "Ivanov", "",
+                        LocalDate.of(1992, Month.FEBRUARY, 23)), "email"),
+                Arguments.of(new RegistrationRequest("", "88888888", "Ivan",
+                        "Ivanov", "",
+                        LocalDate.of(1992, Month.FEBRUARY, 23)), "email"),
+                Arguments.of(new RegistrationRequest("test@mail.ru", "123", "Ivan",
+                        "Ivanov", "",
+                        LocalDate.of(1992, Month.FEBRUARY, 23)), "password"),
+                Arguments.of(new RegistrationRequest("test@mail.ru", "88888888", "",
+                        "Ivanov", "",
+                        LocalDate.of(1992, Month.FEBRUARY, 23)), "name"),
+                Arguments.of(new RegistrationRequest("test@mail.ru", "88888888",
+                        "Ivan", "Ivanov", "",
+                        LocalDate.now().plusDays(1)), "birthdate")
         );
     }
 }

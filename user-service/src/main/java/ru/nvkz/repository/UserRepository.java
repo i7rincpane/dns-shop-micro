@@ -6,6 +6,6 @@ import reactor.core.publisher.Mono;
 import ru.nvkz.domain.User;
 
 @Repository
-public interface UserRepository extends R2dbcRepository<User, Long> {
+public interface UserRepository extends R2dbcRepository<User, Long>, CustomUserRepository {
     Mono<User> findByEmail(String email);
 }

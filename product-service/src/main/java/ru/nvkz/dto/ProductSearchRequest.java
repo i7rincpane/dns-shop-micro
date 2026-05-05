@@ -13,7 +13,9 @@ public record ProductSearchRequest(
         List<String> attrs
 ) {
     public Map<String, Object> getAttrsAsMap() {
-        if (attrs == null || attrs.isEmpty()) return null;
+        if (attrs == null || attrs.isEmpty()) {
+            return null;
+        }
         return attrs.stream()
                 .map(word -> word.split(":"))
                 .filter(array -> array.length == 2)

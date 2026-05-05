@@ -23,7 +23,9 @@ class UserServiceIT extends BaseIntegrationTest {
     @Test
     void shouldRollbackTransactionOnFailure() {
 
-        var badRequest = new RegistrationRequest("test5@test.com", "pass", "name".repeat(500), "Surname", "", LocalDate.of(1999, Month.FEBRUARY, 24));
+        var badRequest = new RegistrationRequest("test5@test.com",
+                "pass", "name".repeat(500), "Surname", "",
+                LocalDate.of(1999, Month.FEBRUARY, 24));
 
         StepVerifier.create(userService.create(badRequest))
                 .expectError()

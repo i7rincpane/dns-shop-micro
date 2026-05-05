@@ -51,7 +51,9 @@ public class OutboxScheduler {
                                     event.setProcessed(true);
                                     return outboxRepository.save(event);
                                 } else {
-                                    log.error("Error sending to Kafka for {}: {}", event.getId(), result.exception().getMessage());
+                                    log.error("Error sending to Kafka for {}: {}",
+                                            event.getId(),
+                                            result.exception().getMessage());
                                     return Mono.empty();
                                 }
                             });
