@@ -1,4 +1,6 @@
 spring:
+  reactor:
+    context-propagation: auto
   application:
     name: user-service
 
@@ -19,4 +21,12 @@ spring:
 logging:
   level:
     org.springframework.r2dbc: DEBUG
+    org.springframework.cloud.gateway: TRACE
+  pattern:
+    level: "%5p [${spring.application.name:},%X{traceId:-},%X{spanId:-}] %m%n"
+
+management:
+  tracing:
+    sampling:
+      probability: 1.0 # Логируем каждый запрос
 

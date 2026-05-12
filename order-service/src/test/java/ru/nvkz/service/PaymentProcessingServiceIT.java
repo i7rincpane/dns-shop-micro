@@ -12,7 +12,7 @@ import ru.nvkz.BaseIntegrationTest;
 import ru.nvkz.domain.Order;
 import ru.nvkz.domain.OrderStatus;
 import ru.nvkz.domain.OutboxEvent;
-import ru.nvkz.domain.OutboxEventType;
+import ru.nvkz.domain.OrderEventType;
 import ru.nvkz.domain.ProcessedEvent;
 import ru.nvkz.event.PaymentEvent;
 import ru.nvkz.event.PaymentStatus;
@@ -61,7 +61,7 @@ class PaymentProcessingServiceIT extends BaseIntegrationTest {
                     assertThat(actualOutboxEvents).hasSize(1);
                     assertThat(actualOutboxEvents.getFirst().getAggregateId())
                             .isEqualTo(paymentEvent.orderId().toString());
-                    assertThat(actualOutboxEvents.getFirst().getType()).isEqualTo(OutboxEventType.ORDER_PAID);
+                    assertThat(actualOutboxEvents.getFirst().getType()).isEqualTo(OrderEventType.ORDER_PAID);
                 })
                 .as("Must create a payment message for the order")
                 .verifyComplete();

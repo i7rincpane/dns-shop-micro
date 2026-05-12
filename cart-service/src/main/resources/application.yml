@@ -1,6 +1,8 @@
 spring:
   application:
     name: cart-service
+  reactor:
+    context-propagation: auto # Чтобы ID не терялся внутри одного сервиса (между потоками)
   r2dbc:
     url: r2dbc:postgresql://localhost:5434/cart_service_db
     username: postgres
@@ -43,6 +45,13 @@ resilience4j:
 logging:
   level:
     org.springframework.r2dbc: DEBUG
+    org.springframework.cloud.gateway: TRACE
+  pattern:
+    level: "%5p [${spring.application.name:},%X{traceId:-},%X{spanId:-}] %m%n"
+
+management:
+    sampling:
+      probability: 1.0 # Без этого Spring будет трассировать только 10% запросов (по умолчанию 0.1)
 
 app:
   order-events-topic:

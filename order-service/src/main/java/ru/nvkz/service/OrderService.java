@@ -1,5 +1,7 @@
 package ru.nvkz.service;
 
+import io.micrometer.tracing.Span;
+import io.micrometer.tracing.Tracer;
 import io.r2dbc.postgresql.codec.Json;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -12,7 +14,7 @@ import ru.nvkz.domain.Order;
 import ru.nvkz.domain.OrderItem;
 import ru.nvkz.domain.OrderStatus;
 import ru.nvkz.domain.OutboxEvent;
-import ru.nvkz.domain.OutboxEventType;
+import ru.nvkz.domain.OrderEventType;
 import ru.nvkz.dto.CartItemDto;
 import ru.nvkz.dto.OrderItemDto;
 import ru.nvkz.dto.StockUpdateRequest;
@@ -41,6 +43,7 @@ public class OrderService {
     private final OrderItemRepository orderItemRepository;
     private final ObjectMapper objectMapper;
     private final OutboxRepository outboxRepository;
+    private final Tracer tracer;
 
     @Transactional
     public Mono<Order> markAsPaid(Long orderId) {
@@ -54,13 +57,13 @@ public class OrderService {
                     } // проигнорировать если не новый, кафка комитит как успех, ретраев нет, нет оповещение отбокс
                     order.setStatus(OrderStatus.PAID);
 
-                    OrderPaidEvent payload = new OrderPaidEvent(orderId, order.getUserId());
+                    OrderPaidEvent payload = new OrderPaidEvent(orderId, order.getUserId(), OrderEventType.ORDER_PAID);
 
                     return orderRepository.save(order) // меняем статус на оплачено и вернуть обновленный
                             .flatMap(savedOrder -> outboxRepository.insert(getOutboxEvent(
                                             orderId,
                                             payload,
-                                            OutboxEventType.ORDER_PAID))
+                                            OrderEventType.ORDER_PAID))
                                     .thenReturn(savedOrder)); // добавить евент в оутбокс
                 });
     }
@@ -91,7 +94,7 @@ public class OrderService {
                                         return outboxRepository.insert(getOutboxEvent(
                                                         orderId,
                                                         payload,
-                                                        OutboxEventType.ORDER_CANCELLED))
+                                                        OrderEventType.ORDER_CANCELLED))
                                                 .then(productClient.increase(requests))
                                                 .thenReturn(savedOrder);
 
@@ -140,13 +143,14 @@ public class OrderService {
                                             }
 
                                     ).flatMap(savedOrder -> {
-
                                                 var eventPayload = new OrderCreatedEvent(
+                                                        OrderEventType.ORDER_CREATED,
                                                         savedOrder.getId(),
                                                         userId,
                                                         savedOrder.getTotalPrice(),
                                                         selectedItems.stream().map(cartItem ->
-                                                                new OrderItemDto(cartItem.productId(),
+                                                                new OrderItemDto(
+                                                                        cartItem.productId(),
                                                                         cartItem.productName(),
                                                                         cartItem.price(),
                                                                         cartItem.quantity())
@@ -156,7 +160,7 @@ public class OrderService {
                                                 OutboxEvent outbox = getOutboxEvent(
                                                         savedOrder.getId(),
                                                         eventPayload,
-                                                        OutboxEventType.ORDER_CREATED);
+                                                        OrderEventType.ORDER_CREATED);
 
                                                 return outboxRepository.insert(outbox)
                                                         .thenReturn(savedOrder);
@@ -169,12 +173,19 @@ public class OrderService {
                 });
     }
 
-    private <T> OutboxEvent getOutboxEvent(Long aggregateId, T eventPayload, OutboxEventType type) {
+    private <T> OutboxEvent getOutboxEvent(Long aggregateId, T eventPayload, OrderEventType type) {
+
+        Span currentSpan = tracer.currentSpan();
+        String traceId = currentSpan != null ? currentSpan.context().traceId() : null;
+        String spanId = currentSpan != null ? currentSpan.context().spanId() : null;
+
         OutboxEvent outbox = new OutboxEvent();
         outbox.setId(UUID.randomUUID());
         outbox.setAggregateId(aggregateId.toString());
         outbox.setType(type);
         outbox.setPayload(Json.of(objectMapper.writeValueAsString(eventPayload)));
+        outbox.setTraceId(traceId);
+        outbox.setSpanId(spanId);
         return outbox;
     }
 
@@ -182,7 +193,8 @@ public class OrderService {
         return new OrderCancelledEvent(
                 orderId,
                 order.getUserId(),
-                OrderCancelledEvent.Reason.PAYMENT_FAILED);
+                OrderCancelledEvent.Reason.PAYMENT_FAILED,
+                OrderEventType.ORDER_CANCELLED);
     }
 
     private <T> List<StockUpdateRequest> mapToStockUpdateRequest(

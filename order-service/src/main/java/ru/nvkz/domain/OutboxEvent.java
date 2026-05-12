@@ -23,8 +23,10 @@ public class OutboxEvent {
     @EqualsAndHashCode.Include
     private UUID id;
     private String aggregateId;
-    private OutboxEventType type;
+    private OrderEventType type;
     private Json payload;
     private OffsetDateTime createdAt;
     private boolean processed;
+    private String traceId;
+    private String spanId;
 }

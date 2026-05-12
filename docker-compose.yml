@@ -68,7 +68,10 @@ services:
       
       SPRING_LIQUIBASE_URL: jdbc:postgresql://user-service-db:5432/user_service_db
       SPRING_LIQUIBASE_USER: postgres
-      SPRING_LIQUIBASE_PASSWORD: postgres  
+      SPRING_LIQUIBASE_PASSWORD: postgres
+
+      MANAGEMENT_ZIPKIN_TRACING_ENDPOINT: http://zipkin:9411/api/v2/spans
+      MANAGEMENT_TRACING_SAMPLING_PROBABILITY: 1.0
     depends_on:
       - user-service-db
     networks:
@@ -88,7 +91,10 @@ services:
       
       SPRING_LIQUIBASE_URL: jdbc:postgresql://product-service-db:5432/product_service_db
       SPRING_LIQUIBASE_USER: postgres
-      SPRING_LIQUIBASE_PASSWORD: postgres  
+      SPRING_LIQUIBASE_PASSWORD: postgres
+
+      MANAGEMENT_ZIPKIN_TRACING_ENDPOINT: http://zipkin:9411/api/v2/spans
+      MANAGEMENT_TRACING_SAMPLING_PROBABILITY: 1.0
     depends_on:
       - product-service-db
     networks:
@@ -112,6 +118,9 @@ services:
 
       SERVICES_PRODUCT_SERVICE_URL: http://product-service:8082
       SPRING_KAFKA_BOOTSTRAP_SERVERS: kafkaserver:9094
+
+      MANAGEMENT_ZIPKIN_TRACING_ENDPOINT: http://zipkin:9411/api/v2/spans
+      MANAGEMENT_TRACING_SAMPLING_PROBABILITY: 1.0
     depends_on:
       - cart-service-db
       - kafkaserver
@@ -138,6 +147,9 @@ services:
 
       SERVICES_PRODUCT_SERVICE_URL: http://product-service:8082
       SERVICES_CART_SERVICE_URL: http://cart-service:8083
+
+      MANAGEMENT_ZIPKIN_TRACING_ENDPOINT: http://zipkin:9411/api/v2/spans
+      MANAGEMENT_TRACING_SAMPLING_PROBABILITY: 1.0
     depends_on:
       - order-service-db
       - kafkaserver
@@ -161,6 +173,9 @@ services:
       SPRING_LIQUIBASE_PASSWORD: postgres
 
       SPRING_KAFKA_BOOTSTRAP_SERVERS: kafkaserver:9094
+
+      MANAGEMENT_ZIPKIN_TRACING_ENDPOINT: http://zipkin:9411/api/v2/spans
+      MANAGEMENT_TRACING_SAMPLING_PROBABILITY: 1.0
     depends_on:
       - payment-service-db
       - kafkaserver
@@ -203,6 +218,15 @@ services:
       - kafkaserver
     networks:
       - dns-network
+
+  zipkin:
+    image: openzipkin/zipkin
+    container_name: zipkin
+    ports:
+      - "9411:9411"
+    networks:
+      - dns-network
+
 
 
 

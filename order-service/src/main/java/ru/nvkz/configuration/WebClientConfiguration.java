@@ -1,6 +1,8 @@
 package ru.nvkz.configuration;
 
 
+import io.micrometer.observation.ObservationRegistry;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.kafka.shaded.com.google.protobuf.ServiceException;
 import org.springframework.beans.factory.annotation.Value;
@@ -19,6 +21,7 @@ import io.r2dbc.spi.R2dbcException;
 
 @Slf4j
 @Configuration
+@RequiredArgsConstructor
 @EnableConfigurationProperties(RetryDefaultProperty.class)
 public class WebClientConfiguration {
 
@@ -27,6 +30,8 @@ public class WebClientConfiguration {
 
     @Value("${services.product-service.url}")
     private String productServiceUrl;
+
+    private final ObservationRegistry observationRegistry;
 
     @Bean
     public WebClient.Builder webClientBuilder() {
@@ -37,12 +42,14 @@ public class WebClientConfiguration {
     public WebClient cartWebClient(WebClient.Builder builder) {
         return builder
                 .baseUrl(cartServiceUrl)
+                .observationRegistry(observationRegistry)
                 .build();
     }
 
     @Bean
     public WebClient productWebClient(WebClient.Builder builder) {
         return builder
+                .observationRegistry(observationRegistry)
                 .baseUrl(productServiceUrl)
                 .build();
     }

@@ -1,5 +1,7 @@
 package ru.nvkz.service;
 
+import io.micrometer.tracing.Span;
+import io.micrometer.tracing.Tracer;
 import io.r2dbc.postgresql.codec.Json;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -7,7 +9,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import reactor.core.publisher.Mono;
 import ru.nvkz.domain.OutboxEvent;
-import ru.nvkz.domain.OutboxEventType;
+import ru.nvkz.domain.PaymentEventType;
 import ru.nvkz.domain.Payment;
 import ru.nvkz.domain.PaymentStatus;
 import ru.nvkz.dto.BankResponse;
@@ -28,6 +30,7 @@ public class PaymentService {
     private final PaymentRepository paymentRepository;
     private final OutboxRepository outboxRepository;
     private final ObjectMapper objectMapper;
+    private final Tracer tracer;
 
     @Transactional
     public Mono<Payment> processWebhook(BankResponse bankResponse) {
@@ -63,6 +66,10 @@ public class PaymentService {
     }
 
     private OutboxEvent mapToOutbox(Payment savedPayment) {
+        Span currentSpan = tracer.currentSpan();
+        String traceId = currentSpan != null ? currentSpan.context().traceId() : null;
+        String spanId = currentSpan != null ? currentSpan.context().spanId() : null;
+
         UUID eventId = UUID.randomUUID(); //Помещаю и в outboxEvent и PaymentEvent.
         // Outbox сам по себе дает гарантирую, что сообщение с этим eventId, повторно не создастся
         PaymentEvent payload = new PaymentEvent(
@@ -74,10 +81,12 @@ public class PaymentService {
         OutboxEvent outboxEvent = new OutboxEvent();
         outboxEvent.setId(eventId);
         outboxEvent.setType(savedPayment.getStatus() == PaymentStatus.SUCCESS
-                ? OutboxEventType.PAYMENT_SUCCESS
-                : OutboxEventType.PAYMENT_FAILED);
+                ? PaymentEventType.PAYMENT_SUCCESS
+                : PaymentEventType.PAYMENT_FAILED);
         outboxEvent.setAggregateId(savedPayment.getId().toString());
         outboxEvent.setPayload(Json.of(objectMapper.writeValueAsString(payload)));
+        outboxEvent.setTraceId(traceId);
+        outboxEvent.setSpanId(spanId);
         return outboxEvent;
     }
 }

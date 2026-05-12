@@ -1,4 +1,6 @@
 spring:
+  reactor:
+    context-propagation: auto
   application:
     name: order-service
   r2dbc:
@@ -41,8 +43,6 @@ services:
   product-service:
     url: http://localhost:8082
 
-
-
 resilience4j:
   circuitbreaker:
     instances:
@@ -55,6 +55,15 @@ resilience4j:
 logging:
   level:
     org.springframework.r2dbc: DEBUG
+    org.springframework.cloud.gateway: TRACE
+  pattern:
+    level: "%5p [${spring.application.name:},%X{traceId:-},%X{spanId:-}] %m%n"
+
+management:
+  tracing:
+    sampling:
+      probability: 1.0 # Логируем каждый запрос
+
 
 app:
   payment-events-topic:

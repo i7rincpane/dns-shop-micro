@@ -1,5 +1,8 @@
 package ru.nvkz.scheduler;
 
+import io.micrometer.tracing.Span;
+import io.micrometer.tracing.Tracer;
+import io.micrometer.tracing.propagation.Propagator;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.kafka.clients.producer.ProducerRecord;
@@ -26,6 +29,8 @@ public class OutboxScheduler {
 
     @Value("${app.outbox.limitRate}")
     private int limitRate;
+    private final Tracer tracer;
+    private final Propagator propagator;
 
     @Scheduled(fixedDelayString = "${app.outbox.scheduler.fixed-delay}")
     public void processOutbox() {
@@ -33,15 +38,28 @@ public class OutboxScheduler {
                 .limitRate(limitRate)
                 .flatMap(event -> {
 
+                    Span kafkaSpan = tracer.spanBuilder()
+                            .setParent(tracer.traceContextBuilder()
+                                    .traceId(event.getTraceId())
+                                    .spanId(event.getSpanId())
+                                    .sampled(true).build())
+                            .kind(Span.Kind.PRODUCER)
+                            .name("payment-outbox-publish")
+                            .tag("kafka.topic", topicName)
+                            .start();
+
                     ProducerRecord<String, String> record = new ProducerRecord<>(
                             topicName,
                             event.getAggregateId(),
                             event.getPayload().asString());
 
+                    propagator.inject(kafkaSpan.context(), record, (rec, key, val) -> {
+                        rec.headers().add(key, val.getBytes());
+                    }); // внедряем контекст трассировки в сообщение кафка в виде заголовков
+
                     SenderRecord<String, String, UUID> reactiveRecord = SenderRecord.create(
                             record
                             , event.getId());
-
 
                     return sender.send(Mono.just(reactiveRecord))
                             .next()

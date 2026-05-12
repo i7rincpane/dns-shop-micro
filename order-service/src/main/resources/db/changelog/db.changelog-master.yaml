@@ -7,3 +7,5 @@ databaseChangeLog:
       file: db/changelog/changes/003_create_outbox_table.sql
   - include:
       file: db/changelog/changes/004_create_processed_event_table.sql
+  - include:
+      file: db/changelog/changes/005_add_trace_id_to_outbox.sql
