@@ -6,5 +6,6 @@ include 'cart-service'
 include 'order-service'
 include 'payment-service'
 include 'gateway-service'
+include 'common'
 
 

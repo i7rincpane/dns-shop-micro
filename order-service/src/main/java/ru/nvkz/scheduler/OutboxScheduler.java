@@ -1,10 +1,5 @@
 package ru.nvkz.scheduler;
 
-
-import io.micrometer.tracing.Span;
-import io.micrometer.tracing.TraceContext;
-import io.micrometer.tracing.Tracer;
-import io.micrometer.tracing.propagation.Propagator;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.kafka.clients.producer.ProducerRecord;
@@ -14,6 +9,7 @@ import org.springframework.stereotype.Component;
 import reactor.core.publisher.Mono;
 import reactor.kafka.sender.KafkaSender;
 import reactor.kafka.sender.SenderRecord;
+import ru.nvkz.common.ReactiveTraceExecutor;
 import ru.nvkz.repository.OutboxRepository;
 
 @Component
@@ -30,9 +26,7 @@ public class OutboxScheduler {
     @Value("${app.outbox.limitRate}")
     private int limitRate;
 
-    private final Tracer tracer;
-
-    private final Propagator propagator;
+    private final ReactiveTraceExecutor traceExecutor;
 
     @Scheduled(fixedDelayString = "${app.outbox.scheduler.fixed-delay}")
     public void processOutbox() {
@@ -40,43 +34,33 @@ public class OutboxScheduler {
                 .limitRate(limitRate)
                 .flatMap(event -> {
 
-                    Span kafkaSpan = tracer.spanBuilder()
-                            .setParent(tracer.traceContextBuilder()
-                                    .traceId(event.getTraceId())
-                                    .spanId(event.getSpanId())
-                                    .sampled(true).build())
-                            .kind(Span.Kind.PRODUCER)
-                            .name("order-outbox-publish")
-                            .tag("kafka.topic", topicName)
-                            .start();
-
 
                     ProducerRecord<String, String> record = new ProducerRecord<>(
                             topicName,
                             event.getAggregateId(),
                             event.getPayload().asString());
 
-                    propagator.inject(kafkaSpan.context(), record, (rec, key, val) -> {
-                        rec.headers().add(key, val.getBytes());
-                    }); // внедряем контекст трассировки в сообщение кафка в виде заголовков
+                    return traceExecutor.executeWithNextKafkaSpan(
+                            event.getTraceId(),
+                            event.getSpanId(),
+                            "order-outbox-publish",
+                            record, () ->
 
-                    return sender.send(Mono.just(SenderRecord.create(record, event.getId())))
-                            .next()
-                            .flatMap(result -> {
-                                if (result.exception() == null) {
-                                    log.info("Event {} successfully sent to Kafka", event.getId());
-                                    event.setProcessed(true);
-                                    return outboxRepository.save(event);
-                                } else {
-                                    log.error("Error sending to Kafka for {}: {}",
-                                            event.getId(),
-                                            result.exception().getMessage());
-                                    return Mono.empty();
-                                }
-                            })
-                            .doFinally(signal -> kafkaSpan.end()) // заканчиваем span операцию, и отправляем
-                            .contextWrite(context -> context.put(TraceContext.class, kafkaSpan.context()));
-                    //поидее сохраняем в рекативнй контекст, но почемуто не используется для логов
+                                    sender.send(Mono.just(SenderRecord.create(record, event.getId())))
+                                            .next()
+                                            .flatMap(result -> {
+                                                if (result.exception() == null) {
+                                                    log.info("Event {} successfully sent to Kafka", event.getId());
+                                                    event.setProcessed(true);
+                                                    return outboxRepository.save(event);
+                                                } else {
+                                                    log.error("Error sending to Kafka for {}: {}",
+                                                            event.getId(),
+                                                            result.exception().getMessage());
+                                                    return Mono.empty();
+                                                }
+                                            })
+                    );
                 })
                 .subscribe();
     }

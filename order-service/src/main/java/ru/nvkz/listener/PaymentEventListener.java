@@ -1,11 +1,5 @@
 package ru.nvkz.listener;
 
-import io.micrometer.observation.Observation;
-import io.micrometer.observation.ObservationRegistry;
-import io.micrometer.observation.contextpropagation.ObservationThreadLocalAccessor;
-import io.micrometer.tracing.Span;
-import io.micrometer.tracing.Tracer;
-import io.micrometer.tracing.propagation.Propagator;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.kafka.clients.producer.ProducerRecord;
@@ -18,13 +12,12 @@ import reactor.kafka.receiver.ReceiverRecord;
 import reactor.kafka.sender.KafkaSender;
 import reactor.kafka.sender.SenderRecord;
 import reactor.util.retry.Retry;
+import ru.nvkz.common.ReactiveTraceExecutor;
 import ru.nvkz.event.PaymentEvent;
 import ru.nvkz.service.PaymentProcessingService;
 import tools.jackson.databind.ObjectMapper;
 
 import java.nio.charset.StandardCharsets;
-import java.util.HashMap;
-import java.util.Map;
 
 @Slf4j
 @Component
@@ -39,53 +32,34 @@ public class PaymentEventListener implements CommandLineRunner {
 
     @Value("${app.payment-events-topic.limitRate}")
     private int limitRate;
-    private final Propagator propagator;
-    private final ObservationRegistry observationRegistry;
-    private final Tracer tracer;
+
+    private final ReactiveTraceExecutor traceExecutor;
 
     @Override
     public void run(String... args) throws Exception {
         receiver.receive()
                 .limitRate(limitRate)
-                .flatMap(record -> {
-                    Map<String, String> headers = new HashMap<>();
-                    record.headers().forEach(h -> headers.put(h.key(), new String(h.value())));
-                    var parentContext = propagator.extract(headers, Map::get);
-
-                    Observation observation = Observation.createNotStarted("order-payment-process", observationRegistry)
-                            .contextualName("order-payment-process--consumer")
-                            .lowCardinalityKeyValue("kafka.topic", record.topic());
-
-                    if (parentContext != null) {
-                        observation.parentObservation(null);
-                    }
-
-                    return Mono.defer(() -> {
-                                try (var ps = tracer.withSpan(parentContext.start())) {
-                                    observation.start();
-                                    try (var scope = observation.openScope()) {
-
-                                        return Mono.fromCallable(() -> objectMapper.readValue(record.value(),
-                                                        PaymentEvent.class))
-                                                .flatMap(paymentEvent ->
-                                                        processingService.process(paymentEvent)
-                                                )
-                                                .retryWhen(kafkaRetry)
-                                                .doOnSuccess(v -> record.receiverOffset().acknowledge())
-                                                .onErrorResume(ex -> {
-                                                    log.error("The message {} has been failed. Error: {}", record.key(),
-                                                            ex.getMessage());
-                                                    return sendToDlq(record, ex)
-                                                            .then(Mono.fromRunnable(() -> record.receiverOffset()
-                                                                    .acknowledge()));
-                                                })
-                                                .doFinally(signal -> observation.stop());
-                                    }
-                                }
-                            })
-                            .contextWrite(context -> context.put(ObservationThreadLocalAccessor.KEY, observation));
-
-                }).onErrorResume(ex -> {
+                .flatMap(record ->
+                        traceExecutor.executeAsKafkaConsumer(
+                                record.headers(),
+                                "order-payment-process",
+                                "order-payment-process--consumer",
+                                record.topic(),                     // Тег топика для фильтрации
+                                () -> Mono.fromCallable(() -> objectMapper
+                                                .readValue(record.value(), PaymentEvent.class))
+                                        .flatMap(processingService::process)
+                                        .retryWhen(kafkaRetry)
+                                        .onErrorResume(ex -> {
+                                            log.error("The message {} has been failed. Error: {}",
+                                                    record.key(),
+                                                    ex.getMessage());
+                                            return sendToDlq(record, ex)
+                                                    .then(Mono.fromRunnable(() ->
+                                                            record.receiverOffset().acknowledge()));
+                                        })
+                        )
+                )
+                .onErrorResume(ex -> {
                     log.error("Kafka consumer flow failed", ex);
                     return Mono.empty();
                 })
