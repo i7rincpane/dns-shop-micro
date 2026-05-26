@@ -42,8 +42,10 @@ public class OrderEventListener implements CommandLineRunner {
                                 "cart-clear-consumer",
                                 "cart-clear-consumer--processor",
                                 record.topic(),
-                                () -> Mono.fromCallable(() -> objectMapper.readValue(record.value(), OrderCreatedEvent.class))
-                                        //.filter(event -> event.type().equals(OrderEventType.ORDER_CREATED))
+                                () -> Mono.fromCallable(() -> objectMapper.readValue(record.value(),
+                                                OrderCreatedEvent.class))
+                                        .filter(event -> event.type()
+                                                .equals(OrderEventType.ORDER_CREATED))
                                         .flatMap(orderCreatedEvent -> cartService.clearCart(
                                                         orderCreatedEvent.userId(),
                                                         getProductIds(orderCreatedEvent))
@@ -52,11 +54,13 @@ public class OrderEventListener implements CommandLineRunner {
                                         .doOnSuccess(v -> {
                                             long offset = record.offset();
                                             record.receiverOffset().acknowledge();
-                                            log.info("Message processed or skipped at partition {}, offset {} confirmed",
+                                            log.info("Message processed or skipped at partition {}," +
+                                                            " offset {} confirmed",
                                                     record.partition(), offset);
                                         })
-                                        .onErrorResume(ex -> {
-                                            log.error("Skip bad message at offset {}: {}", record.offset(), ex.getMessage());
+                                        .onErrorResume(throwable -> {
+                                            log.error("Skip bad message at offset {}: {}", record.offset(),
+                                                    throwable.getMessage());
                                             record.receiverOffset().acknowledge();
                                             return Mono.empty();
                                         })

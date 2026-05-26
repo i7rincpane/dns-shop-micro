@@ -1,8 +1,5 @@
 package ru.nvkz.scheduler;
 
-import io.micrometer.tracing.Span;
-import io.micrometer.tracing.Tracer;
-import io.micrometer.tracing.propagation.Propagator;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.kafka.clients.producer.ProducerRecord;
@@ -14,8 +11,6 @@ import reactor.kafka.sender.KafkaSender;
 import reactor.kafka.sender.SenderRecord;
 import ru.nvkz.common.ReactiveTraceExecutor;
 import ru.nvkz.repository.OutboxRepository;
-
-import java.util.UUID;
 
 @Component
 @RequiredArgsConstructor

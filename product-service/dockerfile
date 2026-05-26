@@ -1,14 +1,7 @@
-FROM eclipse-temurin:21-jdk-alpine AS build
-WORKDIR /app
-
-COPY . .
-
-RUN ./gradlew :product-service:build -x test --no-daemon
-
 FROM eclipse-temurin:21-jre-alpine
 WORKDIR /app
 
-COPY --from=build /app/product-service/build/libs/*.jar app.jar
+COPY product-service/build/libs/*.jar app.jar
 
 ENTRYPOINT ["java", "-jar", "app.jar"]
 

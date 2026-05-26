@@ -70,13 +70,14 @@ services:
       SPRING_LIQUIBASE_USER: postgres
       SPRING_LIQUIBASE_PASSWORD: postgres
 
-      MANAGEMENT_ZIPKIN_TRACING_ENDPOINT: http://zipkin:9411/api/v2/spans
+      MANAGEMENT_TRACING_EXPORT_ZIPKIN_ENDPOINT: http://zipkin:9411/api/v2/spans
       MANAGEMENT_TRACING_SAMPLING_PROBABILITY: 1.0
     depends_on:
       - user-service-db
+      - zipkin
     networks:
       - dns-network
-      
+
   product-service:
     build:
       context: .
@@ -93,10 +94,11 @@ services:
       SPRING_LIQUIBASE_USER: postgres
       SPRING_LIQUIBASE_PASSWORD: postgres
 
-      MANAGEMENT_ZIPKIN_TRACING_ENDPOINT: http://zipkin:9411/api/v2/spans
+      MANAGEMENT_TRACING_EXPORT_ZIPKIN_ENDPOINT: http://zipkin:9411/api/v2/spans
       MANAGEMENT_TRACING_SAMPLING_PROBABILITY: 1.0
     depends_on:
       - product-service-db
+      - zipkin
     networks:
       - dns-network 
 
@@ -119,11 +121,12 @@ services:
       SERVICES_PRODUCT_SERVICE_URL: http://product-service:8082
       SPRING_KAFKA_BOOTSTRAP_SERVERS: kafkaserver:9094
 
-      MANAGEMENT_ZIPKIN_TRACING_ENDPOINT: http://zipkin:9411/api/v2/spans
+      MANAGEMENT_TRACING_EXPORT_ZIPKIN_ENDPOINT: http://zipkin:9411/api/v2/spans
       MANAGEMENT_TRACING_SAMPLING_PROBABILITY: 1.0
     depends_on:
       - cart-service-db
       - kafkaserver
+      - zipkin
     networks:
       - dns-network
 
@@ -148,11 +151,12 @@ services:
       SERVICES_PRODUCT_SERVICE_URL: http://product-service:8082
       SERVICES_CART_SERVICE_URL: http://cart-service:8083
 
-      MANAGEMENT_ZIPKIN_TRACING_ENDPOINT: http://zipkin:9411/api/v2/spans
+      MANAGEMENT_TRACING_EXPORT_ZIPKIN_ENDPOINT: http://zipkin:9411/api/v2/spans
       MANAGEMENT_TRACING_SAMPLING_PROBABILITY: 1.0
     depends_on:
       - order-service-db
       - kafkaserver
+      - zipkin
     networks:
       - dns-network
 
@@ -174,11 +178,47 @@ services:
 
       SPRING_KAFKA_BOOTSTRAP_SERVERS: kafkaserver:9094
 
-      MANAGEMENT_ZIPKIN_TRACING_ENDPOINT: http://zipkin:9411/api/v2/spans
+      MANAGEMENT_TRACING_EXPORT_ZIPKIN_ENDPOINT: http://zipkin:9411/api/v2/spans
       MANAGEMENT_TRACING_SAMPLING_PROBABILITY: 1.0
     depends_on:
       - payment-service-db
       - kafkaserver
+      - zipkin
+    networks:
+      - dns-network
+
+  gateway-service:
+    build:
+      context: .
+      dockerfile: gateway-service/Dockerfile
+    container_name: gateway-service
+    ports:
+      - "8081:8081"
+    environment:
+      MANAGEMENT_TRACING_EXPORT_ZIPKIN_ENDPOINT: http://zipkin:9411/api/v2/spans
+      MANAGEMENT_TRACING_SAMPLING_PROBABILITY: 1.0
+
+      SPRING_CLOUD_GATEWAY_SERVER_WEBFLUX_ROUTES_0_ID: user-service
+      SPRING_CLOUD_GATEWAY_SERVER_WEBFLUX_ROUTES_0_URI: http://user-service:8080
+      SPRING_CLOUD_GATEWAY_SERVER_WEBFLUX_ROUTES_0_PREDICATES_0: Path=/api/v1/users/**
+
+      SPRING_CLOUD_GATEWAY_SERVER_WEBFLUX_ROUTES_1_ID: product-service
+      SPRING_CLOUD_GATEWAY_SERVER_WEBFLUX_ROUTES_1_URI: http://product-service:8082
+      SPRING_CLOUD_GATEWAY_SERVER_WEBFLUX_ROUTES_1_PREDICATES_0: Path=/api/v1/products/**
+
+      SPRING_CLOUD_GATEWAY_SERVER_WEBFLUX_ROUTES_2_ID: cart-service
+      SPRING_CLOUD_GATEWAY_SERVER_WEBFLUX_ROUTES_2_URI: http://cart-service:8083
+      SPRING_CLOUD_GATEWAY_SERVER_WEBFLUX_ROUTES_2_PREDICATES_0: Path=/api/v1/cart/**
+
+      SPRING_CLOUD_GATEWAY_SERVER_WEBFLUX_ROUTES_3_ID: order-service
+      SPRING_CLOUD_GATEWAY_SERVER_WEBFLUX_ROUTES_3_URI: http://order-service:8084
+      SPRING_CLOUD_GATEWAY_SERVER_WEBFLUX_ROUTES_3_PREDICATES_0: Path=/api/v1/orders/**
+
+      SPRING_CLOUD_GATEWAY_SERVER_WEBFLUX_ROUTES_4_ID: payment-service
+      SPRING_CLOUD_GATEWAY_SERVER_WEBFLUX_ROUTES_4_URI: http://payment-service:8085
+      SPRING_CLOUD_GATEWAY_SERVER_WEBFLUX_ROUTES_4_PREDICATES_0: Path=/api/v1/payments/**
+    depends_on:
+      - zipkin
     networks:
       - dns-network
 
@@ -226,9 +266,6 @@ services:
       - "9411:9411"
     networks:
       - dns-network
-
-
-
 
 networks:
   dns-network:

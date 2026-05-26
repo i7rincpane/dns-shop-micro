@@ -2,6 +2,15 @@ plugins {
     id 'java-library'
 }
 
+tasks.named("bootJar") {
+    enabled = false
+}
+
+tasks.named("jar") {
+    enabled = true
+    archiveClassifier = ''
+}
+
 dependencies {
 
     api 'io.micrometer:micrometer-observation'
