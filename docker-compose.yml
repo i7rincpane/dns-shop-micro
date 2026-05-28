@@ -40,6 +40,7 @@ services:
       POSTGRES_PASSWORD: postgres
     ports:
       - "5435:5432"
+    command: ["postgres", "-c", "wal_level=logical"]
     networks:
       - dns-network
 
@@ -264,6 +265,50 @@ services:
     container_name: zipkin
     ports:
       - "9411:9411"
+    networks:
+      - dns-network
+
+  debezium:
+    image: debezium/connect:2.5
+    container_name: debezium
+    ports:
+      - "8089:8083"
+    environment:
+      - BOOTSTRAP_SERVERS=kafkaserver:9094
+      - GROUP_ID=1
+      - CONFIG_STORAGE_TOPIC=my_connect_configs
+      - OFFSET_STORAGE_TOPIC=my_connect_offsets
+      - STATUS_STORAGE_TOPIC=my_connect_statuses
+    depends_on:
+      - kafkaserver
+      - order-service-db
+    networks:
+      - dns-network
+
+
+  debezium-init:
+    image: curlimages/curl:latest
+    container_name: debezium-init
+    command: >
+      sh -c "
+      echo 'Waiting for Debezium to start...';
+      while [ \$$(curl -s -o /dev/null -w '%{http_code}' http://debezium:8083/connectors) -ne 200 ]; do 
+        sleep 2; 
+      done;
+      echo 'Debezium is up!';
+
+      if curl -s -f http://debezium:8083/connectors/order-outbox-connector > /dev/null; then
+        echo 'Connector already exists. Skipping creation.';
+      else
+        echo 'Creating connector order-outbox-connector...';
+        curl -X POST -H 'Accept:application/json' -H 'Content-Type:application/json' http://debezium:8083/connectors/ -d '{\"name\": \"order-outbox-connector\", \"config\": {\"connector.class\": \"io.debezium.connector.postgresql.PostgresConnector\", \"tasks.max\": \"1\", \"plugin.name\": \"pgoutput\", \"database.hostname\": \"order-service-db\", \"database.port\": \"5432\", \"database.user\": \"postgres\", \"database.password\": \"postgres\", \"database.dbname\" : \"order_service_db\", \"topic.prefix\": \"cdc\", \"table.include.list\": \"public.outbox_events\"}}';
+        echo 'Connector created successfully!';
+      fi
+
+      echo 'Init completed. Exiting.';
+      "
+    depends_on:
+      - debezium
     networks:
       - dns-network
 
