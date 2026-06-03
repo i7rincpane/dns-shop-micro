@@ -1,6 +1,9 @@
 package ru.nvkz.event;
 
-public record PaymentEvent(Long orderId,
+import java.util.UUID;
+
+public record PaymentEvent(UUID eventId,
+                           Long orderId,
                            Long userId,
                            PaymentStatus status) {
 }

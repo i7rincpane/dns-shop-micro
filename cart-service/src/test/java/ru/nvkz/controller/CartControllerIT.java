@@ -1,6 +1,5 @@
 package ru.nvkz.controller;
 
-import liquibase.license.User;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -24,7 +23,10 @@ import java.math.BigDecimal;
 import java.util.List;
 import java.util.stream.Stream;
 
-import static com.github.tomakehurst.wiremock.client.WireMock.*;
+import static com.github.tomakehurst.wiremock.client.WireMock.aResponse;
+import static com.github.tomakehurst.wiremock.client.WireMock.equalTo;
+import static com.github.tomakehurst.wiremock.client.WireMock.get;
+import static com.github.tomakehurst.wiremock.client.WireMock.urlPathEqualTo;
 import static org.assertj.core.api.Assertions.assertThat;
 
 @AutoConfigureWebTestClient
@@ -64,8 +66,10 @@ class CartControllerIT extends BaseIntegrationTest {
                         .withHeader("Content-Type", "application/json")
                         .withBody("""
                                 [
-                                {"id": 2, "name": "Товар 2", "price": 2200.00, "categoryName": "Электроника", "quantity": 100},
-                                {"id": 3, "name": "Товар 3", "price": 2000.00, "categoryName": "Электроника", "quantity": 100}
+                                {"id": 2, "name": "Товар 2", "price": 2200.00,
+                                 "categoryName": "Электроника", "quantity": 100},
+                                {"id": 3, "name": "Товар 3", "price": 2000.00,
+                                 "categoryName": "Электроника", "quantity": 100}
                                 ]
                                 """)));
 
@@ -80,8 +84,10 @@ class CartControllerIT extends BaseIntegrationTest {
                     assertThat(cartResponse.items())
                             .hasSize(2)
                             .containsExactlyInAnyOrder(
-                                    new CartItemDto(PRODUCT_ID_2, "Электроника Товар 2", new BigDecimal("2200.00"), 1, true),
-                                    new CartItemDto(PRODUCT_ID_3, "Электроника Товар 3", new BigDecimal("2000.00"), 30, true)
+                                    new CartItemDto(PRODUCT_ID_2, "Электроника Товар 2",
+                                            new BigDecimal("2200.00"), 1, true),
+                                    new CartItemDto(PRODUCT_ID_3, "Электроника Товар 3",
+                                            new BigDecimal("2000.00"), 30, true)
                             );
                 });
     }
@@ -95,7 +101,8 @@ class CartControllerIT extends BaseIntegrationTest {
                         .withHeader("Content-type", "application/json")
                         .withBody("""
                                 [
-                                {"id": 2, "name": "Товар 2", "price": 2200.00, "categoryName": "Электроника", "quantity": 100}
+                                {"id": 2, "name": "Товар 2", "price": 2200.00, "categoryName": "Электроника",
+                                 "quantity": 100}
                                 ]
                                 """)));
 
@@ -105,7 +112,8 @@ class CartControllerIT extends BaseIntegrationTest {
                         .withHeader("Content-type", "application/json")
                         .withBody("""
                                 [
-                                {"id": 1, "name": "Товар 1", "price": 800.00, "categoryName": "Электроника", "quantity": 100}
+                                {"id": 1, "name": "Товар 1", "price": 800.00, "categoryName": "Электроника",
+                                 "quantity": 100}
                                 ]
                                 """)
                 )
@@ -132,7 +140,8 @@ class CartControllerIT extends BaseIntegrationTest {
                         .withHeader("Content-type", "application/json")
                         .withBody("""
                                 [
-                                {"id": 3, "name": "Товар 3", "price": 2000.00, "categoryName": "Электроника", "quantity": 100}
+                                {"id": 3, "name": "Товар 3", "price": 2000.00, "categoryName": "Электроника",
+                                 "quantity": 100}
                                 ]
                                 """)));
 
@@ -174,7 +183,8 @@ class CartControllerIT extends BaseIntegrationTest {
                 .exchange()
                 .expectStatus().isNoContent();
 
-        List<CartItem> actualProducts = template.select(Query.query(Criteria.where("user_id").is(USER_ID)), CartItem.class)
+        List<CartItem> actualProducts = template.select(Query.query(Criteria.where("user_id").is(USER_ID)),
+                        CartItem.class)
                 .collectList()
                 .block();
 
@@ -190,7 +200,9 @@ class CartControllerIT extends BaseIntegrationTest {
         return Stream.of(
                 Arguments.of(new CartItemRequest(PRODUCT_ID_2, 10), 11, "Increment existing"),
                 Arguments.of(new CartItemRequest(PRODUCT_ID_NOT_EXIST, 10), 10, "Create new"),
-                Arguments.of(new CartItemRequest(PRODUCT_ID_2, 101), 100, "Increment with min product quantity"),
-                Arguments.of(new CartItemRequest(PRODUCT_ID_NOT_EXIST, 101), 100, "Create new with min product quantity"));
+                Arguments.of(new CartItemRequest(PRODUCT_ID_2, 101), 100,
+                        "Increment with min product quantity"),
+                Arguments.of(new CartItemRequest(PRODUCT_ID_NOT_EXIST, 101), 100,
+                        "Create new with min product quantity"));
     }
 }

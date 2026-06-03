@@ -64,7 +64,9 @@ public class R2dbcConfiguration extends AbstractR2dbcConfiguration {
 
         @Override
         public Map<String, Object> convert(Json source) {
-            if (source == null) return Map.of();
+            if (source == null) {
+                return Map.of();
+            }
             try {
                 return mapper.readValue(source.asString(), new TypeReference<Map<String, Object>>() {
                 });

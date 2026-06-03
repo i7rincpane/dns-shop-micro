@@ -9,9 +9,8 @@ import org.springframework.stereotype.Component;
 import reactor.core.publisher.Mono;
 import reactor.kafka.sender.KafkaSender;
 import reactor.kafka.sender.SenderRecord;
+import ru.nvkz.common.ReactiveTraceExecutor;
 import ru.nvkz.repository.OutboxRepository;
-
-import java.util.UUID;
 
 @Component
 @RequiredArgsConstructor
@@ -20,6 +19,8 @@ public class OutboxScheduler {
 
     private final OutboxRepository outboxRepository;
     private final KafkaSender<String, String> sender;
+
+    private final ReactiveTraceExecutor traceExecutor;
 
     @Value("${app.outbox.topic}")
     private String topicName;
@@ -32,29 +33,31 @@ public class OutboxScheduler {
         outboxRepository.findAllByProcessedFalse()
                 .limitRate(limitRate)
                 .flatMap(event -> {
-
                     ProducerRecord<String, String> record = new ProducerRecord<>(
                             topicName,
                             event.getAggregateId(),
                             event.getPayload().asString());
 
-                    SenderRecord<String, String, UUID> reactiveRecord = SenderRecord.create(
-                            record
-                            , event.getId());
-
-
-                    return sender.send(Mono.just(reactiveRecord))
-                            .next()
-                            .flatMap(result -> {
-                                if (result.exception() == null) {
-                                    log.info("Event {} successfully sent to Kafka", event.getId());
-                                    event.setProcessed(true);
-                                    return outboxRepository.save(event);
-                                } else {
-                                    log.error("Error sending to Kafka for {}: {}", event.getId(), result.exception().getMessage());
-                                    return Mono.empty();
-                                }
-                            });
+                    return traceExecutor.executeWithNextKafkaSpan(
+                            event.getTraceId(),
+                            event.getSpanId(),
+                            "payment-outbox-publish",
+                            record,
+                            () -> sender.send(Mono.just(SenderRecord.create(record, event.getId())))
+                                    .next()
+                                    .flatMap(result -> {
+                                        if (result.exception() == null) {
+                                            log.info("Event {} successfully sent to Kafka", event.getId());
+                                            event.setProcessed(true);
+                                            return outboxRepository.save(event);
+                                        } else {
+                                            log.error("Error sending to Kafka for {}: {}",
+                                                    event.getId(),
+                                                    result.exception().getMessage());
+                                            return Mono.empty();
+                                        }
+                                    })
+                    );
                 })
                 .subscribe();
     }

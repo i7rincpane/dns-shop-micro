@@ -40,6 +40,7 @@ services:
       POSTGRES_PASSWORD: postgres
     ports:
       - "5435:5432"
+    command: ["postgres", "-c", "wal_level=logical"]
     networks:
       - dns-network
 
@@ -68,12 +69,16 @@ services:
       
       SPRING_LIQUIBASE_URL: jdbc:postgresql://user-service-db:5432/user_service_db
       SPRING_LIQUIBASE_USER: postgres
-      SPRING_LIQUIBASE_PASSWORD: postgres  
+      SPRING_LIQUIBASE_PASSWORD: postgres
+
+      MANAGEMENT_TRACING_EXPORT_ZIPKIN_ENDPOINT: http://zipkin:9411/api/v2/spans
+      MANAGEMENT_TRACING_SAMPLING_PROBABILITY: 1.0
     depends_on:
       - user-service-db
+      - zipkin
     networks:
       - dns-network
-      
+
   product-service:
     build:
       context: .
@@ -88,9 +93,13 @@ services:
       
       SPRING_LIQUIBASE_URL: jdbc:postgresql://product-service-db:5432/product_service_db
       SPRING_LIQUIBASE_USER: postgres
-      SPRING_LIQUIBASE_PASSWORD: postgres  
+      SPRING_LIQUIBASE_PASSWORD: postgres
+
+      MANAGEMENT_TRACING_EXPORT_ZIPKIN_ENDPOINT: http://zipkin:9411/api/v2/spans
+      MANAGEMENT_TRACING_SAMPLING_PROBABILITY: 1.0
     depends_on:
       - product-service-db
+      - zipkin
     networks:
       - dns-network 
 
@@ -112,8 +121,13 @@ services:
 
       SERVICES_PRODUCT_SERVICE_URL: http://product-service:8082
       SPRING_KAFKA_BOOTSTRAP_SERVERS: kafkaserver:9094
+
+      MANAGEMENT_TRACING_EXPORT_ZIPKIN_ENDPOINT: http://zipkin:9411/api/v2/spans
+      MANAGEMENT_TRACING_SAMPLING_PROBABILITY: 1.0
     depends_on:
       - cart-service-db
+      - kafkaserver
+      - zipkin
     networks:
       - dns-network
 
@@ -137,9 +151,13 @@ services:
 
       SERVICES_PRODUCT_SERVICE_URL: http://product-service:8082
       SERVICES_CART_SERVICE_URL: http://cart-service:8083
+
+      MANAGEMENT_TRACING_EXPORT_ZIPKIN_ENDPOINT: http://zipkin:9411/api/v2/spans
+      MANAGEMENT_TRACING_SAMPLING_PROBABILITY: 1.0
     depends_on:
       - order-service-db
       - kafkaserver
+      - zipkin
     networks:
       - dns-network
 
@@ -160,9 +178,48 @@ services:
       SPRING_LIQUIBASE_PASSWORD: postgres
 
       SPRING_KAFKA_BOOTSTRAP_SERVERS: kafkaserver:9094
+
+      MANAGEMENT_TRACING_EXPORT_ZIPKIN_ENDPOINT: http://zipkin:9411/api/v2/spans
+      MANAGEMENT_TRACING_SAMPLING_PROBABILITY: 1.0
     depends_on:
       - payment-service-db
       - kafkaserver
+      - zipkin
+    networks:
+      - dns-network
+
+  gateway-service:
+    build:
+      context: .
+      dockerfile: gateway-service/Dockerfile
+    container_name: gateway-service
+    ports:
+      - "8081:8081"
+    environment:
+      MANAGEMENT_TRACING_EXPORT_ZIPKIN_ENDPOINT: http://zipkin:9411/api/v2/spans
+      MANAGEMENT_TRACING_SAMPLING_PROBABILITY: 1.0
+
+      SPRING_CLOUD_GATEWAY_SERVER_WEBFLUX_ROUTES_0_ID: user-service
+      SPRING_CLOUD_GATEWAY_SERVER_WEBFLUX_ROUTES_0_URI: http://user-service:8080
+      SPRING_CLOUD_GATEWAY_SERVER_WEBFLUX_ROUTES_0_PREDICATES_0: Path=/api/v1/users/**
+
+      SPRING_CLOUD_GATEWAY_SERVER_WEBFLUX_ROUTES_1_ID: product-service
+      SPRING_CLOUD_GATEWAY_SERVER_WEBFLUX_ROUTES_1_URI: http://product-service:8082
+      SPRING_CLOUD_GATEWAY_SERVER_WEBFLUX_ROUTES_1_PREDICATES_0: Path=/api/v1/products/**
+
+      SPRING_CLOUD_GATEWAY_SERVER_WEBFLUX_ROUTES_2_ID: cart-service
+      SPRING_CLOUD_GATEWAY_SERVER_WEBFLUX_ROUTES_2_URI: http://cart-service:8083
+      SPRING_CLOUD_GATEWAY_SERVER_WEBFLUX_ROUTES_2_PREDICATES_0: Path=/api/v1/cart/**
+
+      SPRING_CLOUD_GATEWAY_SERVER_WEBFLUX_ROUTES_3_ID: order-service
+      SPRING_CLOUD_GATEWAY_SERVER_WEBFLUX_ROUTES_3_URI: http://order-service:8084
+      SPRING_CLOUD_GATEWAY_SERVER_WEBFLUX_ROUTES_3_PREDICATES_0: Path=/api/v1/orders/**
+
+      SPRING_CLOUD_GATEWAY_SERVER_WEBFLUX_ROUTES_4_ID: payment-service
+      SPRING_CLOUD_GATEWAY_SERVER_WEBFLUX_ROUTES_4_URI: http://payment-service:8085
+      SPRING_CLOUD_GATEWAY_SERVER_WEBFLUX_ROUTES_4_PREDICATES_0: Path=/api/v1/payments/**
+    depends_on:
+      - zipkin
     networks:
       - dns-network
 
@@ -175,6 +232,8 @@ services:
 
   kafkaserver:
     image: wurstmeister/kafka:latest
+    container_name: kafkaserver
+    hostname: kafkaserver
     ports:
       - "9092:9092"
     environment:
@@ -201,7 +260,57 @@ services:
     networks:
       - dns-network
 
+  zipkin:
+    image: openzipkin/zipkin
+    container_name: zipkin
+    ports:
+      - "9411:9411"
+    networks:
+      - dns-network
 
+  debezium:
+    image: debezium/connect:2.5
+    container_name: debezium
+    ports:
+      - "8089:8083"
+    environment:
+      - BOOTSTRAP_SERVERS=kafkaserver:9094
+      - GROUP_ID=1
+      - CONFIG_STORAGE_TOPIC=my_connect_configs
+      - OFFSET_STORAGE_TOPIC=my_connect_offsets
+      - STATUS_STORAGE_TOPIC=my_connect_statuses
+    depends_on:
+      - kafkaserver
+      - order-service-db
+    networks:
+      - dns-network
+
+
+  debezium-init:
+    image: curlimages/curl:latest
+    container_name: debezium-init
+    command: >
+      sh -c "
+      echo 'Waiting for Debezium to start...';
+      while [ \$$(curl -s -o /dev/null -w '%{http_code}' http://debezium:8083/connectors) -ne 200 ]; do 
+        sleep 2; 
+      done;
+      echo 'Debezium is up!';
+
+      if curl -s -f http://debezium:8083/connectors/order-outbox-connector > /dev/null; then
+        echo 'Connector already exists. Skipping creation.';
+      else
+        echo 'Creating connector order-outbox-connector...';
+        curl -X POST -H 'Accept:application/json' -H 'Content-Type:application/json' http://debezium:8083/connectors/ -d '{\"name\": \"order-outbox-connector\", \"config\": {\"connector.class\": \"io.debezium.connector.postgresql.PostgresConnector\", \"tasks.max\": \"1\", \"plugin.name\": \"pgoutput\", \"database.hostname\": \"order-service-db\", \"database.port\": \"5432\", \"database.user\": \"postgres\", \"database.password\": \"postgres\", \"database.dbname\" : \"order_service_db\", \"topic.prefix\": \"cdc\", \"table.include.list\": \"public.outbox_events\"}}';
+        echo 'Connector created successfully!';
+      fi
+
+      echo 'Init completed. Exiting.';
+      "
+    depends_on:
+      - debezium
+    networks:
+      - dns-network
 
 networks:
   dns-network:

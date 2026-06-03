@@ -1,0 +1,8 @@
+<?xml version="1.0"?>
+<ruleset name="Custom Ruleset" xmlns="http://sourceforge.net"
+         xmlns:xsi="http://w3.org"
+         xsi:schemaLocation="http://sourceforge.net https://sourceforge.io">
+    <description>Custom ruleset for DNS Shop</description>
+    <rule ref="category/java/errorprone.xml/EmptyCatchBlock"/> <!-- Ошибка при пустом catch -->
+    <rule ref="category/java/bestpractices.xml/UnusedLocalVariable"/> <!-- Неиспользуемые переменные -->
+</ruleset>

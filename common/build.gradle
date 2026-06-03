@@ -1,0 +1,26 @@
+plugins {
+    id 'java-library'
+}
+
+tasks.named("bootJar") {
+    enabled = false
+}
+
+tasks.named("jar") {
+    enabled = true
+    archiveClassifier = ''
+}
+
+dependencies {
+
+    api 'io.micrometer:micrometer-observation'
+    api 'io.micrometer:micrometer-tracing'
+    api 'io.micrometer:micrometer-tracing-bridge-brave'
+    api 'io.micrometer:context-propagation'
+
+    implementation 'io.projectreactor:reactor-core'
+    implementation 'org.apache.kafka:kafka-clients'
+
+    compileOnly 'org.projectlombok:lombok'
+    annotationProcessor 'org.projectlombok:lombok'
+}

@@ -1,14 +1,5 @@
-FROM eclipse-temurin:21-jdk-alpine AS build
-WORKDIR /app
-
-COPY . .
-
-RUN ./gradlew :cart-service:build -x test --no-daemon
-
 FROM eclipse-temurin:21-jre-alpine
 WORKDIR /app
-
-COPY --from=build /app/cart-service/build/libs/*.jar app.jar
-
+COPY cart-service/build/libs/*.jar app.jar
 ENTRYPOINT ["java", "-jar", "app.jar"]
 

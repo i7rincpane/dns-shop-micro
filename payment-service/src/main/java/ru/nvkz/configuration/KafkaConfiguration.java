@@ -29,7 +29,8 @@ public class KafkaConfiguration {
                                                        @Value("${app.order-events-topic.name}") String topic) {
         Map<String, Object> props = kafkaProperties.buildConsumerProperties();
         log.info("Settings kafkaReceiver:{}", props);
-        ReceiverOptions<String, String> receiverOptions = ReceiverOptions.<String, String>create(props).subscription(Collections.singleton(topic));
+        ReceiverOptions<String, String> receiverOptions = ReceiverOptions.<String, String>create(props)
+                .subscription(Collections.singleton(topic));
         return KafkaReceiver.create(receiverOptions);
     }
 }

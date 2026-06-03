@@ -1,6 +1,6 @@
-package ru.nvkz.domain;
+package ru.nvkz.event;
 
-public enum OutboxEventType {
+public enum OrderEventType {
     ORDER_CREATED,
     ORDER_CANCELLED,
     ORDER_PAID

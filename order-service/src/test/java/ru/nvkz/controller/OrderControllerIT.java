@@ -61,7 +61,8 @@ class OrderControllerIT extends BaseIntegrationTest {
 
         wireMock.stubFor(WireMock.get(WireMock.urlEqualTo("/api/v1/cart"))
                 .willReturn(WireMock.okJson("""
-                {"items": [{"productId": 99, "productName": null, "quantity": 1, "isSelected": true}], "totalSelectedPrice": 500}
+                {"items": [{"productId": 99, "productName": null, "quantity": 1, "isSelected": true}],
+                 "totalSelectedPrice": 500}
             """)));
 
         wireMock.stubFor(WireMock.post(WireMock.urlEqualTo("/api/v1/products/stock/decrease"))

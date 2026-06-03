@@ -1,6 +1,8 @@
 spring:
   application:
     name: product-service
+  reactor:
+    context-propagation: auto
   r2dbc:
     url: r2dbc:postgresql://localhost:5433/product_service_db
     username: postgres
@@ -21,4 +23,11 @@ server:
 logging:
   level:
     org.springframework.r2dbc: DEBUG
+    org.springframework.cloud.gateway: TRACE
+  pattern:
+    level: "%5p [${spring.application.name:},%X{traceId:-},%X{spanId:-}] %m%n"
+
+management:
+    sampling:
+      probability: 1.0 # Логируем каждый запрос
 

@@ -1,7 +1,11 @@
 package ru.nvkz.domain;
 
 import io.r2dbc.postgresql.codec.Json;
-import lombok.*;
+import lombok.AllArgsConstructor;
+import lombok.EqualsAndHashCode;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
 import org.springframework.data.annotation.Id;
 import org.springframework.data.relational.core.mapping.Table;
 
@@ -19,8 +23,10 @@ public class OutboxEvent {
     @EqualsAndHashCode.Include
     private UUID id;
     private String aggregateId;
-    private OutboxEventType type;
+    private PaymentEventType type;
     private Json payload;
     private OffsetDateTime createdAt;
     private boolean processed;
+    private String traceId;
+    private String spanId;
 }

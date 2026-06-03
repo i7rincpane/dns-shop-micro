@@ -56,7 +56,6 @@ public class GlobalExceptionHandler {
                 .body(ex.getMessage());
     }
 
-
     @ExceptionHandler(ResponseStatusException.class)
     public ResponseEntity<String> handleResponseStatus(ResponseStatusException ex) {
         return ResponseEntity.status(ex.getStatusCode()).body(ex.getReason());
@@ -67,7 +66,9 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(ex.getStatusCode()).body(ex.getMessage());
     }
 
-    private ResponseEntity<String> getResponseEntity(DnsShopException ex, ServerWebExchange serverWebExchange, HttpStatus unprocessableContent) {
+    private ResponseEntity<String> getResponseEntity(DnsShopException ex,
+                                                     ServerWebExchange serverWebExchange,
+                                                     HttpStatus unprocessableContent) {
         Locale locale = serverWebExchange.getLocaleContext().getLocale();
         String message = messageSource.getMessage(ex.getMessage(), ex.getArgs(), locale);
         log.warn(message);

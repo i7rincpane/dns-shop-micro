@@ -16,7 +16,13 @@ import reactor.core.publisher.Flux;
 import ru.nvkz.BaseIntegrationTest;
 import ru.nvkz.domain.Category;
 import ru.nvkz.domain.Product;
-import ru.nvkz.dto.*;
+import ru.nvkz.dto.CategoryFiltersResponse;
+import ru.nvkz.dto.FilterValue;
+import ru.nvkz.dto.ProductFullResponse;
+import ru.nvkz.dto.ProductSaveDto;
+import ru.nvkz.dto.ProductSearchRequest;
+import ru.nvkz.dto.ProductUpdateDto;
+import ru.nvkz.dto.StockUpdateRequest;
 
 import java.math.BigDecimal;
 import java.util.Collection;
@@ -40,14 +46,24 @@ class ProductControllerIT extends BaseIntegrationTest {
         template.insert(new Category(null, "Электроника"))
                 .flatMap(category ->
                         Flux.concat(
-                                template.insert(createNewProduct(category.id(), "Товар 1", new BigDecimal("100.00"), 10, "Дешевый", Map.of("color", "black", "storage", "256GB"))),
-                                template.insert(createNewProduct(category.id(), "Товар 2", new BigDecimal("500.00"), 10, "Приемлемый", Map.of("color", "white", "storage", "128GB"))),
-                                template.insert(createNewProduct(category.id(), "Товар 3", new BigDecimal("1000.00"), 10, "Дорогой", Map.of("color", "black", "fast_charge", true))),
-                                template.insert(createNewProduct(category.id(), "Другое", new BigDecimal("1101.00"), 10, "Переменный", Collections.emptyMap()))
+                                template.insert(createNewProduct(category.id(), "Товар 1",
+                                        new BigDecimal("100.00"), 10, "Дешевый",
+                                        Map.of("color", "black", "storage", "256GB"))),
+                                template.insert(createNewProduct(category.id(), "Товар 2",
+                                        new BigDecimal("500.00"), 10, "Приемлемый",
+                                        Map.of("color", "white", "storage", "128GB"))),
+                                template.insert(createNewProduct(category.id(), "Товар 3",
+                                        new BigDecimal("1000.00"), 10, "Дорогой",
+                                        Map.of("color", "black", "fast_charge", true))),
+                                template.insert(createNewProduct(category.id(), "Другое",
+                                        new BigDecimal("1101.00"), 10,
+                                        "Переменный", Collections.emptyMap()))
                         ).collectList()
                 ).then(template.insert(new Category(null, "Посуда")))
                 .flatMap(category ->
-                        template.insert(createNewProduct(category.id(), "Тарелка 1", new BigDecimal("100.00"), 10, "Дешевый", Collections.emptyMap()))
+                        template.insert(createNewProduct(category.id(), "Тарелка 1",
+                                new BigDecimal("100.00"), 10, "Дешевый",
+                                Collections.emptyMap()))
                 )
                 .block();
     }
@@ -60,7 +76,8 @@ class ProductControllerIT extends BaseIntegrationTest {
                 .expectStatus().isOk()
                 .expectBody();
 
-        Product product = template.selectOne(Query.query(Criteria.where("id").is(1L)), Product.class).block();
+        Product product = template.selectOne(Query.query(Criteria.where("id").is(1L)), Product.class)
+                .block();
 
         assertThat(product.getQuantity()).isEqualTo(8);
     }
@@ -68,16 +85,19 @@ class ProductControllerIT extends BaseIntegrationTest {
     @Test
     void shouldThrowErrorWhenStockNotEnough() {
         webTestClient.post().uri("/api/v1/products/stock/decrease")
-                .bodyValue(List.of(new StockUpdateRequest(2L, 1), new StockUpdateRequest(1L, 222)))
+                .bodyValue(List.of(new StockUpdateRequest(2L, 1),
+                        new StockUpdateRequest(1L, 222)))
                 .exchange().expectStatus().is4xxClientError()
                 .expectBody(String.class)
                 .isEqualTo("Продукт 1 отсутствует на складе в количестве 222");
 
-        List<Product> products = template.select(Query.query(Criteria.where("id").in(1L, 2L)), Product.class)
+        List<Product> products = template.select(Query.query(Criteria.where("id").in(1L, 2L)),
+                        Product.class)
                 .collectList()
                 .block();
 
-        assertThat(products.stream().mapToInt(Product::getQuantity).toArray()).containsExactlyInAnyOrder(10, 10);
+        assertThat(products.stream().mapToInt(Product::getQuantity).toArray())
+                .containsExactlyInAnyOrder(10, 10);
 
     }
 
@@ -107,7 +127,8 @@ class ProductControllerIT extends BaseIntegrationTest {
                 .expectBody(CategoryFiltersResponse.class)
                 .value(response -> {
                     Collection<FilterValue> filterValues = response.attributes().get("color");
-                    assertThat(filterValues).containsExactlyInAnyOrder(new FilterValue("black", 2L), new FilterValue("white", 1L));
+                    assertThat(filterValues).containsExactlyInAnyOrder(new FilterValue("black", 2L),
+                            new FilterValue("white", 1L));
                 });
     }
 
@@ -118,7 +139,8 @@ class ProductControllerIT extends BaseIntegrationTest {
                 .block();
 
         Product product = webTestClient.post().uri("/api/v1/products")
-                .bodyValue(new ProductSaveDto(category.id(), "Ноутбук", new BigDecimal("500000.00"), 10, "Мощный", Map.of("CPU", "M3", "RAM", "16GB")))
+                .bodyValue(new ProductSaveDto(category.id(), "Ноутбук", new BigDecimal("500000.00"),
+                        10, "Мощный", Map.of("CPU", "M3", "RAM", "16GB")))
                 .exchange()
                 .expectStatus().isCreated()
                 .expectBody(Product.class)
@@ -153,11 +175,22 @@ class ProductControllerIT extends BaseIntegrationTest {
     void shouldFilterProductsByFilter(ProductSearchRequest filter, int expectedSize, String[] expectedNames) {
         webTestClient.get().uri(uriBuilder -> {
                             uriBuilder.path("/api/v1/products");
-                            if (filter.maxPrice() != null) uriBuilder.queryParam("maxPrice", filter.maxPrice());
-                            if (filter.minPrice() != null) uriBuilder.queryParam("minPrice", filter.minPrice());
-                            if (filter.namePart() != null) uriBuilder.queryParam("namePart", filter.namePart());
-                            if (filter.categoryId() != null) uriBuilder.queryParam("categoryId", filter.categoryId());
-                            if (filter.attrs() != null) uriBuilder.queryParam("attrs", filter.attrs().toArray());
+                            if (filter.maxPrice() != null) {
+                                uriBuilder.queryParam("maxPrice", filter.maxPrice());
+                            }
+                            if (filter.minPrice() != null) {
+                                uriBuilder.queryParam("minPrice", filter.minPrice());
+                            }
+                            if (filter.namePart() != null) {
+                                uriBuilder.queryParam("namePart", filter.namePart());
+                            }
+                            if (filter.categoryId() != null) {
+                                uriBuilder.queryParam("categoryId", filter
+                                        .categoryId());
+                            }
+                            if (filter.attrs() != null) {
+                                uriBuilder.queryParam("attrs", filter.attrs().toArray());
+                            }
                             return uriBuilder.build();
                         }
                 )
@@ -181,10 +214,11 @@ class ProductControllerIT extends BaseIntegrationTest {
     }
 
     @Test
-    void shouldReturn$404WhenCategoryIntoProductNotExisting() {
+    void shouldReturn404WhenCategoryIntoProductNotExisting() {
         webTestClient.post().uri("/api/v1/products")
                 .header("Accept-Language", "ru")
-                .bodyValue(new ProductSaveDto(999L, "Ноутбук", new BigDecimal("500000.00"), 10, "Мощный", Collections.emptyMap()))
+                .bodyValue(new ProductSaveDto(999L, "Ноутбук", new BigDecimal("500000.00"),
+                        10, "Мощный", Collections.emptyMap()))
                 .exchange()
                 .expectStatus().isNotFound()
                 .expectBody(String.class)
@@ -193,7 +227,8 @@ class ProductControllerIT extends BaseIntegrationTest {
 
     @Test
     void shouldMergeAttributesOnPatch() {
-        var updateDto = new ProductUpdateDto(null, null, null, null, null, Map.of("color", "white", "CPU", "M3"));
+        var updateDto = new ProductUpdateDto(null, null, null, null, null,
+                Map.of("color", "white", "CPU", "M3"));
 
         webTestClient.patch().uri("/api/v1/products/{id}", 1L)
                 .bodyValue(updateDto)
@@ -219,30 +254,56 @@ class ProductControllerIT extends BaseIntegrationTest {
 
     private static Stream<Arguments> invalidCreateProduct() {
         return Stream.of(
-                Arguments.of(new ProductSaveDto(null, "Ноутбук", new BigDecimal("500000.00"), 10, "Мощный", Collections.emptyMap()), "categoryId"),
-                Arguments.of(new ProductSaveDto(CATEGORY_ID, "", new BigDecimal("500000.00"), 10, "Мощный", Collections.emptyMap()), "name"),
-                Arguments.of(new ProductSaveDto(CATEGORY_ID, null, new BigDecimal("500000.00"), 10, "Мощный", Collections.emptyMap()), "name"),
-                Arguments.of(new ProductSaveDto(CATEGORY_ID, "   ", new BigDecimal("500000.00"), 10, "Мощный", Collections.emptyMap()), "name"),
-                Arguments.of(new ProductSaveDto(CATEGORY_ID, "Ноутбук", null, 10, "Мощный", Collections.emptyMap()), "price"),
-                Arguments.of(new ProductSaveDto(CATEGORY_ID, "Ноутбук", new BigDecimal("-1.00"), 10, "Мощный", Collections.emptyMap()), "price")
+                Arguments.of(new ProductSaveDto(null, "Ноутбук",
+                        new BigDecimal("500000.00"), 10, "Мощный",
+                        Collections.emptyMap()), "categoryId"),
+                Arguments.of(new ProductSaveDto(CATEGORY_ID, "",
+                        new BigDecimal("500000.00"), 10, "Мощный",
+                        Collections.emptyMap()), "name"),
+                Arguments.of(new ProductSaveDto(CATEGORY_ID, null,
+                        new BigDecimal("500000.00"), 10, "Мощный",
+                        Collections.emptyMap()), "name"),
+                Arguments.of(new ProductSaveDto(CATEGORY_ID, "   ",
+                        new BigDecimal("500000.00"), 10, "Мощный",
+                        Collections.emptyMap()), "name"),
+                Arguments.of(new ProductSaveDto(CATEGORY_ID, "Ноутбук",
+                        null, 10, "Мощный", Collections.emptyMap()), "price"),
+                Arguments.of(new ProductSaveDto(CATEGORY_ID, "Ноутбук",
+                        new BigDecimal("-1.00"), 10, "Мощный", Collections.emptyMap()), "price")
         );
     }
 
     private static Stream<Arguments> filterProductsByPriceRange() {
         return Stream
                 .of(
-                        Arguments.of(new ProductSearchRequest(null, null, null, null, Collections.emptyList()), 5, new String[]{"Товар 1", "Товар 2", "Товар 3", "Другое", "Тарелка 1"}),
-                        Arguments.of(new ProductSearchRequest("2", null, null, null, Collections.emptyList()), 1, new String[]{"Товар 2"}),
-                        Arguments.of(new ProductSearchRequest("Товар", null, null, null, Collections.emptyList()), 3, new String[]{"Товар 1", "Товар 2", "Товар 3"}),
-                        Arguments.of(new ProductSearchRequest(null, null, null, new BigDecimal(400L), Collections.emptyList()), 2, new String[]{"Товар 1", "Тарелка 1"}),
-                        Arguments.of(new ProductSearchRequest(null, null, new BigDecimal(600L), null, Collections.emptyList()), 2, new String[]{"Товар 3", "Другое"}),
-                        Arguments.of(new ProductSearchRequest(null, null, new BigDecimal(400L), new BigDecimal(1001L), Collections.emptyList()), 2, new String[]{"Товар 2", "Товар 3"}),
-                        Arguments.of(new ProductSearchRequest(null, 2L, null, null, Collections.emptyList()), 1, new String[]{"Тарелка 1"}),
-                        Arguments.of(new ProductSearchRequest(null, null, null, null, List.of("color:black")), 2, new String[]{"Товар 1", "Товар 3"})
+                        Arguments.of(new ProductSearchRequest(null, null,
+                                        null, null, Collections.emptyList()), 5,
+                                new String[]{"Товар 1", "Товар 2", "Товар 3", "Другое", "Тарелка 1"}),
+                        Arguments.of(new ProductSearchRequest("2", null,
+                                null, null, Collections.emptyList()), 1, new String[]{"Товар 2"}),
+                        Arguments.of(new ProductSearchRequest("Товар", null,
+                                        null, null, Collections.emptyList()), 3,
+                                new String[]{"Товар 1", "Товар 2", "Товар 3"}),
+                        Arguments.of(new ProductSearchRequest(null,
+                                null, null, new BigDecimal(400L),
+                                Collections.emptyList()), 2, new String[]{"Товар 1", "Тарелка 1"}),
+                        Arguments.of(new ProductSearchRequest(null,
+                                null, new BigDecimal(600L), null,
+                                Collections.emptyList()), 2, new String[]{"Товар 3", "Другое"}),
+                        Arguments.of(new ProductSearchRequest(null,
+                                        null, new BigDecimal(400L),
+                                        new BigDecimal(1001L), Collections.emptyList()), 2,
+                                new String[]{"Товар 2", "Товар 3"}),
+                        Arguments.of(new ProductSearchRequest(null, 2L,
+                                null, null, Collections.emptyList()), 1, new String[]{"Тарелка 1"}),
+                        Arguments.of(new ProductSearchRequest(null, null,
+                                        null, null, List.of("color:black")), 2,
+                                new String[]{"Товар 1", "Товар 3"})
                 );
     }
 
-    private Product createNewProduct(Long categoryId, String name, BigDecimal price, Integer quantity, String description, Map<String, Object> attrs) {
+    private Product createNewProduct(Long categoryId, String name, BigDecimal price,
+                                     Integer quantity, String description, Map<String, Object> attrs) {
         return new Product(null, categoryId, name, price, description, quantity, attrs, null);
     }
 

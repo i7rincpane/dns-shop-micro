@@ -7,6 +7,5 @@ public record CartItemRequest(
         @NotNull(message = "{cart.product.notnull}")
         Long productId,
         @Positive(message = "{cart.quantity.positive}")
-        int quantity)
-{
+        int quantity) {
 }

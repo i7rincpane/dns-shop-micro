@@ -1,4 +1,6 @@
 spring:
+  reactor:
+    context-propagation: auto
   application:
     name: payment-service
   r2dbc:
@@ -38,6 +40,14 @@ server:
 logging:
   level:
     org.springframework.r2dbc: DEBUG
+    org.springframework.cloud.gateway: TRACE
+  pattern:
+    level: "%5p [${spring.application.name:},%X{traceId:-},%X{spanId:-}] %m%n"
+
+management:
+  tracing:
+    sampling:
+      probability: 1.0 # Логируем каждый запрос
 
 app:
   order-events-topic:

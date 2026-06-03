@@ -11,6 +11,7 @@ import reactor.util.retry.Retry;
 import ru.nvkz.dto.StockUpdateRequest;
 import ru.nvkz.exception.handler.OrderCreationException;
 
+import java.time.Duration;
 import java.util.List;
 
 @Slf4j
@@ -23,18 +24,25 @@ public class ProductClient {
 
     public Mono<Void> decrease(List<StockUpdateRequest> requests) {
         return productWebClient.post()
+
                 .uri("/api/v1/products/stock/decrease")
                 .bodyValue(requests)
                 .retrieve()
                 // Бизнес ошибка, не ретраим
                 .onStatus(httpStatusCode -> httpStatusCode.value() == 422,
-                        clientResponse -> clientResponse.bodyToMono(String.class).map(OrderCreationException::new).flatMap(Mono::error))
+                        clientResponse -> clientResponse.bodyToMono(String.class)
+                                .map(OrderCreationException::new)
+                                .flatMap(Mono::error))
                 // Серверная ошибка, оборачиваем, чтоб включился ретрай
                 .onStatus(HttpStatusCode::is5xxServerError,
-                        clientResponse -> clientResponse.bodyToMono(String.class).map(ServiceException::new).flatMap(Mono::error))
+                        clientResponse -> clientResponse.bodyToMono(String.class)
+                                .map(ServiceException::new)
+                                .flatMap(Mono::error))
                 .bodyToMono(Void.class)
+                .timeout(Duration.ofSeconds(5))
                 .retryWhen(retryDefault)
-                .doOnSuccess(v -> log.info("Остатки успешно списаны для {} позиций", requests.size()));
+                .doOnSuccess(v -> log.info("Balances have been successfully written off for {} positions",
+                        requests.size()));
 
     }
 
@@ -43,8 +51,14 @@ public class ProductClient {
                 .uri("/api/v1/products/stock/increase")
                 .bodyValue(requests)
                 .retrieve()
+                .onStatus(HttpStatusCode::is5xxServerError,
+                        clientResponse -> clientResponse.bodyToMono(String.class)
+                                .map(ServiceException::new)
+                                .flatMap(Mono::error))
                 .bodyToMono(Void.class)
-                .doOnSuccess(v -> log.info("Остатки успешно возвращены на склад"));
+                .timeout(Duration.ofSeconds(5))
+                .retryWhen(retryDefault)
+                .doOnSuccess(v -> log.info("Balances have been successfully returned to the warehouse"));
 
     }
 

@@ -1,5 +1,7 @@
 package ru.nvkz.service;
 
+import io.micrometer.tracing.Span;
+import io.micrometer.tracing.Tracer;
 import io.r2dbc.postgresql.codec.Json;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -8,7 +10,11 @@ import org.springframework.transaction.annotation.Transactional;
 import reactor.core.publisher.Mono;
 import ru.nvkz.client.CartClient;
 import ru.nvkz.client.ProductClient;
-import ru.nvkz.domain.*;
+import ru.nvkz.domain.Order;
+import ru.nvkz.domain.OrderItem;
+import ru.nvkz.domain.OrderStatus;
+import ru.nvkz.domain.OutboxEvent;
+import ru.nvkz.domain.OrderEventType;
 import ru.nvkz.dto.CartItemDto;
 import ru.nvkz.dto.OrderItemDto;
 import ru.nvkz.dto.StockUpdateRequest;
@@ -24,6 +30,7 @@ import tools.jackson.databind.ObjectMapper;
 import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.UUID;
+import java.util.function.Function;
 
 @Slf4j
 @Service
@@ -36,75 +43,78 @@ public class OrderService {
     private final OrderItemRepository orderItemRepository;
     private final ObjectMapper objectMapper;
     private final OutboxRepository outboxRepository;
+    private final Tracer tracer;
 
     @Transactional
     public Mono<Order> markAsPaid(Long orderId) {
-        return orderRepository.findById(orderId)
+        return orderRepository.findById(orderId) // если нашел заказ
+                .switchIfEmpty(Mono.error(new IllegalArgumentException(
+                        "Order not found with id: " + orderId))) // не нужно ретраить
                 .flatMap(order -> {
 
-                    if (order.getStatus() == OrderStatus.PAID) {
+                    if (order.getStatus() != OrderStatus.NEW) {
                         return Mono.just(order);
-                    }
-
+                    } // проигнорировать если не новый, кафка комитит как успех, ретраев нет, нет оповещение отбокс
                     order.setStatus(OrderStatus.PAID);
 
-                    OrderPaidEvent payload = new OrderPaidEvent(orderId, order.getUserId());
+                    OrderPaidEvent payload = new OrderPaidEvent(orderId, order.getUserId(), OrderEventType.ORDER_PAID);
 
-                    return orderRepository.save(order)
+                    return orderRepository.save(order) // меняем статус на оплачено и вернуть обновленный
                             .flatMap(savedOrder -> outboxRepository.insert(getOutboxEvent(
                                             orderId,
                                             payload,
-                                            OutboxEventType.ORDER_PAID))
-                                    .thenReturn(savedOrder));
+                                            OrderEventType.ORDER_PAID))
+                                    .thenReturn(savedOrder)); // добавить евент в оутбокс
                 });
     }
 
     @Transactional
     public Mono<Order> compensateOrder(Long orderId) {
         return orderRepository.findById(orderId)
+                .switchIfEmpty(Mono.error(new IllegalArgumentException("Order not found with id: " + orderId)))
                 .flatMap(order -> {
 
-                    if (order.getStatus() == OrderStatus.CANCELLED) {
+                    if (order.getStatus() != OrderStatus.NEW) {
                         return Mono.just(order);
                     }
 
                     order.setStatus(OrderStatus.CANCELLED);
                     return orderRepository.save(order)
-                            .flatMap(savedOrder -> {
-                                return orderItemRepository.findAllByOrderId(orderId)
-                                        .collectList()
-                                        .flatMap(orderItems -> {
-                                            List<StockUpdateRequest> requests = orderItems.stream()
-                                                    .map(orderItem -> new StockUpdateRequest(orderItem.getProductId(), orderItem.getQuantity()))
-                                                    .toList();
+                            .flatMap(savedOrder -> orderItemRepository.findAllByOrderId(orderId)
+                                    .collectList()
+                                    .flatMap(orderItems -> {
 
-                                            OrderCancelledEvent payload = new OrderCancelledEvent(
-                                                    orderId,
-                                                    order.getUserId(),
-                                                    OrderCancelledEvent.Reason.PAYMENT_FAILED);
+                                        List<StockUpdateRequest> requests = mapToStockUpdateRequest(
+                                                orderItems,
+                                                OrderItem::getProductId,
+                                                OrderItem::getQuantity);
 
-                                            return productClient.increase(requests)
-                                                    .then(outboxRepository.insert(getOutboxEvent(
-                                                            orderId,
-                                                            payload,
-                                                            OutboxEventType.ORDER_CANCELLED)))
-                                                    .thenReturn(savedOrder);
+                                        OrderCancelledEvent payload = getOrderCancelledEvent(orderId, order);
 
-                                        });
-                            });
+                                        return outboxRepository.insert(getOutboxEvent(
+                                                        orderId,
+                                                        payload,
+                                                        OrderEventType.ORDER_CANCELLED))
+                                                .then(productClient.increase(requests))
+                                                .thenReturn(savedOrder);
+
+                                    }));
                 });
     }
 
     @Transactional
     public Mono<Order> create(Long userId) {
         return cartClient.getCartByUserId(userId)
-                .switchIfEmpty(Mono.error(new NotFoundException("Корзина для юзера не найдена", userId)))
+                .switchIfEmpty(Mono.error(new NotFoundException("error.cart.notfound", userId)))
                 .flatMap(cartResponse -> {
 
                     List<CartItemDto> selectedItems = cartResponse.items();
                     selectedItems.removeIf(cartItemDto -> !cartItemDto.isSelected());
 
-                    List<StockUpdateRequest> stockUpdatesRequest = mapToStockUpdateRequest(selectedItems);
+                    List<StockUpdateRequest> stockUpdatesRequest = mapToStockUpdateRequest(
+                            selectedItems,
+                            CartItemDto::productId,
+                            CartItemDto::quantity);
 
                     return productClient.decrease(stockUpdatesRequest)
                             .then(orderRepository.save(new Order(
@@ -133,18 +143,24 @@ public class OrderService {
                                             }
 
                                     ).flatMap(savedOrder -> {
-
                                                 var eventPayload = new OrderCreatedEvent(
+                                                        OrderEventType.ORDER_CREATED,
                                                         savedOrder.getId(),
                                                         userId,
                                                         savedOrder.getTotalPrice(),
-                                                        selectedItems.stream().map(cartItem -> new OrderItemDto(cartItem.productId(), cartItem.productName(), cartItem.price(), cartItem.quantity())).toList()
+                                                        selectedItems.stream().map(cartItem ->
+                                                                new OrderItemDto(
+                                                                        cartItem.productId(),
+                                                                        cartItem.productName(),
+                                                                        cartItem.price(),
+                                                                        cartItem.quantity())
+                                                        ).toList()
                                                 );
 
                                                 OutboxEvent outbox = getOutboxEvent(
                                                         savedOrder.getId(),
                                                         eventPayload,
-                                                        OutboxEventType.ORDER_CREATED);
+                                                        OrderEventType.ORDER_CREATED);
 
                                                 return outboxRepository.insert(outbox)
                                                         .thenReturn(savedOrder);
@@ -157,19 +173,39 @@ public class OrderService {
                 });
     }
 
-    private <T> OutboxEvent getOutboxEvent(Long aggregateId, T eventPayload, OutboxEventType type) {
+    private <T> OutboxEvent getOutboxEvent(Long aggregateId, T eventPayload, OrderEventType type) {
+
+        Span currentSpan = tracer.currentSpan();
+        String traceId = currentSpan != null ? currentSpan.context().traceId() : null;
+        String spanId = currentSpan != null ? currentSpan.context().spanId() : null;
+
         OutboxEvent outbox = new OutboxEvent();
         outbox.setId(UUID.randomUUID());
         outbox.setAggregateId(aggregateId.toString());
         outbox.setType(type);
         outbox.setPayload(Json.of(objectMapper.writeValueAsString(eventPayload)));
+        outbox.setTraceId(traceId);
+        outbox.setSpanId(spanId);
         return outbox;
     }
 
-    private List<StockUpdateRequest> mapToStockUpdateRequest(List<CartItemDto> selectedItems) {
-        return selectedItems.stream()
-                .map(cartItemDto -> new StockUpdateRequest(cartItemDto.productId(), cartItemDto.quantity()))
-                .toList();
+    private OrderCancelledEvent getOrderCancelledEvent(Long orderId, Order order) {
+        return new OrderCancelledEvent(
+                orderId,
+                order.getUserId(),
+                OrderCancelledEvent.Reason.PAYMENT_FAILED,
+                OrderEventType.ORDER_CANCELLED);
     }
 
+    private <T> List<StockUpdateRequest> mapToStockUpdateRequest(
+            List<T> items,
+            Function<T, Long> idExtractor,
+            Function<T, Integer> qtyExtractor) {
+        return items.stream()
+                .map(item -> new StockUpdateRequest(
+                        idExtractor.apply(item),
+                        qtyExtractor.apply(item))
+                )
+                .toList();
+    }
 }

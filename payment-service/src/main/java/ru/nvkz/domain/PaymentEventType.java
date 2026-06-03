@@ -1,6 +1,6 @@
 package ru.nvkz.domain;
 
-public enum OutboxEventType {
+public enum PaymentEventType {
     PAYMENT_SUCCESS,
     PAYMENT_FAILED
 }

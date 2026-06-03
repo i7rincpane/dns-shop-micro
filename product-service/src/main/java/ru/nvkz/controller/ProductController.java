@@ -3,12 +3,24 @@ package ru.nvkz.controller;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.ResponseStatus;
+import org.springframework.web.bind.annotation.RestController;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import ru.nvkz.domain.Product;
-import ru.nvkz.dto.*;
-import ru.nvkz.exception.handler.OutOfStockException;
+import ru.nvkz.dto.CategoryFiltersResponse;
+import ru.nvkz.dto.ProductFullResponse;
+import ru.nvkz.dto.ProductSaveDto;
+import ru.nvkz.dto.ProductSearchRequest;
+import ru.nvkz.dto.ProductUpdateDto;
+import ru.nvkz.dto.StockUpdateRequest;
 import ru.nvkz.service.ProductService;
 
 import java.util.List;
@@ -25,7 +37,9 @@ public class ProductController {
     }
 
     @GetMapping
-    public Flux<ProductFullResponse> getAll(ProductSearchRequest productSearchRequest, @RequestParam(defaultValue = "20") Integer pageSize, @RequestParam(defaultValue = "0") Integer pageNumber) {
+    public Flux<ProductFullResponse> getAll(ProductSearchRequest productSearchRequest,
+                                            @RequestParam(defaultValue = "20") Integer pageSize,
+                                            @RequestParam(defaultValue = "0") Integer pageNumber) {
         return productService.findAllByFilter(productSearchRequest, pageSize, pageNumber);
     }
 
@@ -55,7 +69,6 @@ public class ProductController {
     public Mono<Void> decreaseStock(@RequestBody List<StockUpdateRequest> requests) {
         return productService.decreaseStock(requests);
     }
-
 
     @PostMapping("stock/increase")
     @ResponseStatus(HttpStatus.OK)

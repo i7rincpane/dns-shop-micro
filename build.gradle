@@ -1,29 +1,22 @@
 plugins {
-    // Объявляем плагины в корне, но ставим apply false.
-    // Если применить spring-boot в самом корне, Gradle будет пытаться собрать исполняемый jar-файл из пустой корневой папки, и всё упадет.
     id 'java'
     id 'jacoco'
     alias(libs.plugins.spring.boot) apply false
     alias(libs.plugins.spring.dependency.management) apply false
 }
 
+// 1. НАСТРОЙКИ АБСОЛЮТНО ДЛЯ ВСЕХ МОДУЛЕЙ (Включая common)
 subprojects {
-    // Здесь мы ПРИМЕНЯЕМ плагины ко всем вложенным папкам (сервисам)
     apply plugin: 'java'
+    apply plugin: 'jacoco'
+    apply plugin: 'checkstyle'
+    apply plugin: 'pmd'
     apply plugin: 'org.springframework.boot'
     apply plugin: 'io.spring.dependency-management'
-    apply plugin: 'jacoco'
 
-    jacoco {
-        toolVersion = libs.versions.jacoco.get()
-    }
-
-
-    // Групповые настройки, чтобы не дублировать их в каждом build.gradle
     group = 'ru.nvkz'
     version = '0.0.1-SNAPSHOT'
 
-    // Указываем версию Java для всех (берем из нашего libs.versions.toml)
     java {
         toolchain {
             languageVersion = JavaLanguageVersion.of(libs.versions.java.get())
@@ -34,25 +27,44 @@ subprojects {
         mavenCentral()
     }
 
+    checkstyle {
+        toolVersion = '10.12.5'
+        configFile = rootProject.file('configuration/checkstyle/checkstyle.xml')
+        ignoreFailures = false
+        showViolations = true
+    }
+
+    pmd {
+        consoleOutput = true
+        toolVersion = '7.1.0'
+        ruleSetFiles = rootProject.files(rootProject.file('configuration/pmd/ruleset.xml'))
+        ignoreFailures = false
+    }
+}
+
+// 2. НАСТРОЙКИ ТОЛЬКО ДЛЯ МИКРОСЕРВИСОВ (Исключая библиотеку common)
+configure(subprojects.findAll { it.name != 'common' }) {
+
     dependencies {
         // --- 1. WEB & CORE ---
-        // Эти стартеры нужны абсолютно в каждом нашем сервисе
-        implementation libs.boot.starter.webflux      // Реактивный движок
-        implementation libs.boot.starter.validation   // Аннотации @NotNull, @Positive и т.д.
-        implementation libs.boot.starter.actuator     // Метрики и health-checks (/actuator/health)
-        implementation libs.boot.starter.aop          // Для работы CircuitBreaker и логирования
+        implementation libs.boot.starter.webflux
+        implementation libs.boot.starter.validation
+        implementation libs.boot.starter.actuator
+        implementation libs.boot.starter.aop
 
         // --- 2. LOMBOK ---
-        // Инструмент для автогенерации геттеров/сеттеров
         compileOnly "org.projectlombok:lombok:${libs.versions.lombok.get()}"
         annotationProcessor "org.projectlombok:lombok:${libs.versions.lombok.get()}"
         testCompileOnly "org.projectlombok:lombok:${libs.versions.lombok.get()}"
         testAnnotationProcessor "org.projectlombok:lombok:${libs.versions.lombok.get()}"
 
         // --- 3. TESTING ---
-        // База для тестов
-        testImplementation libs.boot.starter.test     // JUnit, Mockito, AssertJ
-        testImplementation libs.reactor.test          // StepVerifier для реактивных стримов
+        testImplementation libs.boot.starter.test
+        testImplementation libs.reactor.test
+        testImplementation libs.webtestclient
+        testImplementation libs.testcontainers.jupiter
+        testImplementation libs.testcontainers.postgresql
+        testImplementation libs.wiremock
 
         // --- БД и Миграции ---
         implementation libs.data.r2dbc
@@ -74,25 +86,29 @@ subprojects {
         implementation "org.springframework.cloud:spring-cloud-starter-circuitbreaker-reactor-resilience4j:5.0.1"
         implementation 'org.springdoc:springdoc-openapi-starter-webflux-ui:3.0.2'
 
-        // --- Тестовые утилиты ---
-        testImplementation libs.webtestclient
-        testImplementation libs.testcontainers.jupiter
-        testImplementation libs.testcontainers.postgresql
-        testImplementation libs.wiremock
+        // --- Трейсинг ---
+        implementation 'org.springframework.boot:spring-boot-starter-zipkin'
+        implementation 'io.micrometer:context-propagation:1.1.1'
 
+        // --- Брокер ---
         implementation 'org.springframework.boot:spring-boot-starter-kafka'
         implementation 'io.projectreactor.kafka:reactor-kafka:1.3.25'
 
+        // Подключаем ядро ShedLock и интеграцию со Spring
+        implementation 'net.javacrumbs.shedlock:shedlock-spring:5.13.0'
+        // Подключаем провайдер блокировок через JDBC (JDBC уже есть для Liquibase)
+        implementation 'net.javacrumbs.shedlock:shedlock-provider-jdbc-template:5.13.0'
+
+
+        implementation project(':common')
     }
 
     jacocoTestReport {
-        reports {
-            html.required = true
-        }
+        reports { html.required = true }
         afterEvaluate {
             classDirectories.setFrom(files(classDirectories.files.collect {
                 fileTree(dir: it, exclude: [
-                        "ru/nvkz/*Application.class", // Маска для всех сервисов
+                        "ru/nvkz/*Application.class",
                         "ru/nvkz/config/**",
                         "ru/nvkz/domain/**",
                         "ru/nvkz/dto/**"

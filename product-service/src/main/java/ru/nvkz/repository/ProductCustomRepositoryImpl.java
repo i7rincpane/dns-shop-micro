@@ -21,7 +21,8 @@ public class ProductCustomRepositoryImpl implements ProductCustomRepository {
     private final R2dbcConfiguration.MapToJsonConverter mapToJsonConverter;
     private final R2dbcConfiguration.JsonToMapConverter jsonToMapConverter;
 
-    private record RowData(String key, String value, Long count) {}
+    private record RowData(String key, String value, Long count) {
+    }
 
 
     @Override
@@ -52,7 +53,9 @@ public class ProductCustomRepositoryImpl implements ProductCustomRepository {
     }
 
     @Override
-    public Flux<ProductFullResponse> findAllByFilter(ProductSearchRequest filter, Integer pageSize, Integer pageNumber) {
+    public Flux<ProductFullResponse> findAllByFilter(ProductSearchRequest filter,
+                                                     Integer pageSize,
+                                                     Integer pageNumber) {
         StringBuilder sql = new StringBuilder("""
                     SELECT p.id, p.name, p.price, c.name as category_name, p.quantity, p.attributes
                     FROM products p

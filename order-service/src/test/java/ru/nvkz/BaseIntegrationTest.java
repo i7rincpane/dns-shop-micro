@@ -34,7 +34,7 @@ public abstract class BaseIntegrationTest {
     @BeforeEach
     void clearDatabase() {
         template.getDatabaseClient()
-                .sql("TRUNCATE TABLE order_items, orders RESTART IDENTITY CASCADE")
+                .sql("TRUNCATE TABLE order_items, orders, processed_events, outbox_events RESTART IDENTITY CASCADE")
                 .then()
                 .block();
     }
